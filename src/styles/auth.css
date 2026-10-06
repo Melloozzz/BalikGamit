@@ -1,0 +1,411 @@
+/* Login, Sign Up and password pages: navy, blurred campus photo, frosted card (Figma "Login Page"). */
+.auth {
+  position: relative;
+  overflow: hidden;
+  min-height: calc(100 * var(--vh));
+  display: flex;
+  flex-direction: column;
+  background: var(--navy-900);
+  color: #fff;
+  font-family: var(--font-inter);
+}
+.auth__photo,
+.landing-hero__photo {
+  position: absolute;
+  left: -22%;
+  top: -2px;
+  width: 126%;
+  height: 1026px;
+  max-width: none;
+  object-fit: cover;
+  object-position: center bottom;
+  filter: blur(5px);
+  opacity: 0.288;
+  pointer-events: none;
+}
+/* Two columns from 901px up. Sizes follow the Figma 1440×1024 frame at full size and
+   shrink with both width (vw) and height (vh), so 125%/150% Windows scaling still fits. */
+.auth__top {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 607px);
+  column-gap: clamp(24px, calc(4 * var(--vw)), 64px);
+  align-items: start;
+  padding: 0 clamp(16px, calc(4.2 * var(--vw)), 60px) clamp(32px, calc(6 * var(--vh)), 64px) clamp(16px, calc(3.2 * var(--vw)), 46px);
+}
+.auth__left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.auth__hero {
+  padding: clamp(40px, calc(15 * var(--vh)), 168px) 0 clamp(24px, calc(4 * var(--vh)), 48px) clamp(0px, calc(3.1 * var(--vw)), 45px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, calc(4 * var(--vh)), 48px);
+}
+
+.brand-lockup {
+  display: flex;
+  align-items: flex-start;
+  gap: 22px;
+  padding-top: clamp(24px, calc(5 * var(--vh)), 53px);
+  color: #fff;
+  text-decoration: none;
+}
+.brand-lockup .logo-tile {
+  margin-top: 9px;
+}
+.brand-lockup__text {
+  display: flex;
+  flex-direction: column;
+}
+.brand-lockup__text .wordmark {
+  margin-bottom: 16px;
+}
+.brand-lockup__sub {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.2;
+  margin-top: 5px;
+  color: #fff;
+}
+
+.hero-title {
+  max-width: 712px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(30px, calc(3.65 * var(--vw)), 52.6px);
+  line-height: 1.28;
+  color: #fff;
+}
+.hero-title .gold {
+  white-space: nowrap;
+}
+.hero-lead {
+  max-width: 544px;
+  font-family: var(--font-inter);
+  font-size: clamp(17px, calc(1.65 * var(--vw)), 23.7px);
+  line-height: 1.22;
+  color: #d9d9d9;
+}
+
+.auth__card {
+  position: relative;
+  min-width: 0;
+  margin-top: clamp(24px, calc(11 * var(--vh)), 117px);
+  padding: clamp(28px, calc(5.5 * var(--vh)), 56px) clamp(24px, calc(4.6 * var(--vw)), 74px) clamp(28px, calc(6 * var(--vh)), 64px);
+  border-radius: 36px;
+  background: rgba(217, 217, 217, 0.2);
+  box-shadow: 17px 16px 8px 5px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, calc(2.2 * var(--vh)), 22px);
+}
+.auth-form--tight {
+  gap: 14px;
+}
+.auth-form--center {
+  align-items: center;
+  text-align: center;
+}
+.auth-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-body);
+  font-size: clamp(26px, min(calc(2.85 * var(--vw)), calc(4.4 * var(--vh))), 41px);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.auth-welcome__name {
+  font-family: var(--font-display);
+  color: #fff;
+  letter-spacing: -0.015em;
+}
+.auth-join {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(30px, calc(3.3 * var(--vw)), 48px);
+  font-weight: 700;
+  color: #fff;
+}
+.auth-join .gold {
+  font-family: var(--font-body);
+  letter-spacing: 0.1em;
+}
+.auth-title {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(30px, calc(2.85 * var(--vw)), 41px);
+  letter-spacing: -0.04em;
+  line-height: 1.28;
+  color: var(--gold);
+}
+.auth-text {
+  font-size: clamp(16px, calc(1.3 * var(--vw)), 18.5px);
+  line-height: 1.4;
+}
+.auth-text--center {
+  text-align: center;
+}
+.auth-text--muted {
+  color: #d9d9d9;
+}
+.auth-text--strong {
+  font-weight: 700;
+  font-size: 20px;
+}
+.auth-email {
+  margin-top: -12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.auth-icon {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--gold);
+  background: rgba(217, 167, 19, 0.18);
+  color: var(--gold);
+}
+
+.auth .field {
+  gap: clamp(6px, calc(1.2 * var(--vh)), 12px);
+}
+.auth .field__label {
+  font-family: var(--font-inter);
+  font-weight: 700;
+  font-size: clamp(16px, calc(1.4 * var(--vw)), 20px);
+  color: #fff;
+}
+.auth .input {
+  min-height: clamp(48px, calc(6.6 * var(--vh)), 64px);
+  padding: 0 clamp(16px, calc(2 * var(--vw)), 29px);
+  border-radius: clamp(16px, calc(2.4 * var(--vh)), 23.4px);
+  border: 1.17px solid #000;
+  font-family: var(--font-inter);
+  font-size: clamp(16px, calc(1.3 * var(--vw)), 18.5px);
+  color: #1f1d1d;
+}
+.auth .input--with-btn {
+  padding-right: 64px;
+}
+.auth .input::placeholder {
+  color: var(--ink-3);
+}
+.auth .field--error .input,
+.auth .input[aria-invalid="true"] {
+  border: 2px solid var(--error);
+}
+.auth .field__error {
+  color: #ffd2d2;
+}
+.auth-form--tight .input {
+  min-height: 54px;
+}
+.auth-error {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #ecbfd0;
+  color: var(--error);
+  text-align: center;
+  font-size: 15px;
+}
+.auth-forgot {
+  align-self: flex-end;
+  margin-top: -6px;
+  color: #fff;
+  font-weight: 700;
+  font-size: clamp(15px, calc(1.2 * var(--vw)), 17px);
+}
+.auth .btn--navy {
+  background: var(--navy-900);
+  border-radius: 14px;
+  min-height: clamp(48px, calc(6 * var(--vh)), 58px);
+  font-family: var(--font-inter);
+  font-size: clamp(17px, calc(1.4 * var(--vw)), 20px);
+  font-weight: 700;
+}
+.auth-switch {
+  text-align: center;
+  font-size: clamp(16px, calc(1.3 * var(--vw)), 18.5px);
+}
+.auth-switch a {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: inherit;
+}
+.consent {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.consent input {
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--navy-900);
+}
+.consent a {
+  color: var(--gold);
+}
+.consent--error span {
+  color: #ffd2d2;
+}
+.demo-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #d9d9d9;
+  text-align: center;
+  padding: 10px 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 10px;
+}
+
+/* How it works strip and privacy banner */
+/* "How it Works" strip: the divider sits above it and the title heads the steps. */
+.how {
+  position: relative;
+  border-top: 1px solid rgba(217, 217, 217, 0.75);
+  padding-top: 20px;
+}
+.how__title {
+  padding-left: clamp(16px, calc(6.3 * var(--vw)), 91px);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 23px;
+  line-height: 28px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fffdfd;
+}
+.how__steps {
+  list-style: none;
+  margin: 0;
+  padding: 21px clamp(16px, calc(6.2 * var(--vw)), 89px) 20px clamp(16px, calc(6.3 * var(--vw)), 91px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.how__steps li {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  flex: 0 1 476px;
+  min-width: 240px;
+}
+.how__steps li:nth-child(2) {
+  flex-basis: 461px;
+}
+.how__steps li:last-child {
+  flex: 1 1 240px;
+}
+.how__icon {
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.how__steps strong {
+  display: block;
+  font-size: 18.5px;
+  margin-bottom: 12px;
+}
+.how__steps span {
+  display: block;
+  max-width: 185px;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+  color: #aeacac;
+}
+/* Privacy line: one left-aligned row under How it Works (Figma Login Page). */
+.auth__banner {
+  position: relative;
+  min-height: 101px;
+  padding: 20px var(--gutter) 20px clamp(16px, calc(4.7 * var(--vw)), 68px);
+  background: var(--navy-900);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+}
+.auth__banner svg {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+}
+.auth__banner p {
+  max-width: none;
+  font-size: clamp(15px, calc(1.38 * var(--vw)), 19.9px);
+  line-height: 1.21;
+  color: #aeacac;
+}
+
+@media (max-width: 900px) {
+  .auth__top {
+    grid-template-columns: minmax(0, 1fr);
+    padding-bottom: 40px;
+  }
+  .auth__hero {
+    padding-top: 48px;
+  }
+  .auth__card {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 607px;
+  }
+}
+@media (max-width: 600px) {
+  .brand-lockup {
+    padding-top: 24px;
+    gap: 14px;
+  }
+  .brand-lockup .logo-tile {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  .brand-lockup .logo-tile img {
+    height: 46px;
+    width: auto;
+  }
+  .brand-lockup__text .wordmark {
+    font-size: 32px !important;
+    margin-bottom: 8px;
+  }
+  .brand-lockup__sub {
+    font-size: 11px;
+  }
+  .auth__hero {
+    padding: 36px 0 8px;
+    gap: 20px;
+  }
+  .auth__card {
+    padding: 32px 20px;
+    border-radius: 24px;
+    box-shadow: none;
+  }
+  .auth .input {
+    min-height: 54px;
+    padding: 0 18px;
+    font-size: 16px;
+  }
+  .auth .field__label {
+    font-size: 17px;
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BalikGamit — the lost and found system for the RTU–Pasig Campus community." />
+    <script>
+      // Fit-to-screen scaling. On laptops and desktops the page is laid out on a canvas
+      // about 1700px wide (the Figma layout at full size) and scaled to the window, so it
+      // keeps the same proportions at 100%, 125%, 150% or 175% Windows scaling and at any
+      // browser zoom. Phones and narrow windows (< 900px) use the normal responsive layout.
+      (function () {
+        var REF = 1700, MIN_PHYSICAL = 0.75, MAX = 1.25;
+        var root = document.documentElement;
+        function fit() {
+          if (window.__BG_NO_FIT) return; // design exports render at a fixed 1440px
+          var w = window.innerWidth, h = window.innerHeight, dpr = window.devicePixelRatio || 1;
+          var z = 1;
+          if (w >= 900) {
+            z = w / REF;
+            // Keep text readable on low-density screens (e.g. a half-width window at 100%).
+            z = Math.max(z, MIN_PHYSICAL / dpr);
+            z = Math.min(z, MAX);
+          }
+          root.style.zoom = z === 1 ? "" : String(z);
+          root.style.setProperty("--vw", w / z / 100 + "px");
+          root.style.setProperty("--vh", h / z / 100 + "px");
+        }
+        fit();
+        window.addEventListener("resize", fit);
+      })();
+    </script>
+    <title>BalikGamit · RTU–Pasig Lost &amp; Found</title>
+    <script>
+      window.addEventListener("error", function (e) {
+        var root = document.getElementById("root");
+        if (!root || root.childElementCount) return;
+        var pre = document.createElement("pre");
+        pre.style.cssText = "white-space:pre-wrap;margin:48px auto;max-width:760px;padding:16px;font:13px monospace;background:#f4f5f7;border-radius:8px";
+        pre.textContent = "BalikGamit failed to start:\n\n" + (e.error && e.error.stack ? e.error.stack : e.message);
+        root.appendChild(pre);
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

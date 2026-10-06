@@ -1,0 +1,47 @@
+/* Design tokens taken from the BalikGamit Figma file. */
+:root {
+  /* Viewport units. index.html replaces these with zoom-corrected pixel values. */
+  --vw: 1vw;
+  --vh: 1vh;
+  --navy-950: #001a49; /* footers, site bands */
+  --navy-900: #00225f; /* auth background, auth buttons */
+  --navy-800: #002060; /* student top bar, primary buttons */
+  --heading: #0a2463; /* page titles */
+  --teal: #073b55; /* "Balik" in the logo, on light backgrounds */
+  --gold: #d9a713;
+  --gold-soft: #e6c66a; /* category pill */
+  --card: #dedfe3; /* student cards and panels */
+  --think: #b4c4e2; /* "Think it's yours?" and claim item strip */
+  --done: #c9d5ea; /* confirmation cards */
+  --ai-panel: #7393d9;
+  --ink: #2a2e37;
+  --ink-2: #3a3f4b;
+  --ink-3: #4a4646;
+  --muted: #5b6170;
+  --line: #c9cdd5;
+  --line-soft: #dde0e5;
+  --surface: #ffffff;
+  --admin-bg: #f4f5f7;
+  --blue: #1d4eb8; /* office accent */
+  --blue-dark: #163d91;
+  --blue-soft: #e1e8f5;
+  --green: #1c6634;
+  --green-bg: #ddf2e2;
+  --amber: #7a4b00;
+  --amber-dot: #c98a00;
+  --amber-bg: #fdecc8;
+  --red: #b42318;
+  --red-text: #9b1c1c;
+  --red-bg: #fbe2e0;
+  --error: #e30000;
+  --pink: #c51e63;
+  --pink-bg: #fde4ee;
+
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Space Grotesk", "Instrument Sans", system-ui, sans-serif;
+  --font-inter: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --gutter: clamp(16px, calc(5.4 * var(--vw)), 78px);
+  --radius: 12px;
+  --radius-lg: 24px;
+}
