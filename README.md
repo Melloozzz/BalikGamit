@@ -30,7 +30,9 @@ To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both va
 | Part | State |
 |---|---|
 | All routes, layouts, forms, validation, status flows | Done. |
-| Item details (found and lost, student and admin) | Popups. Opened from a list, they sit over that page. Opened from a direct link, they sit over All found items, All lost items, or the admin Dashboard. |
+| Item details (found and lost, student and admin) | Popups. Opened from a list, they sit over that page. Opened from a direct link, they sit over All found items or All lost items (students), or the office Found items / Lost reports lists. |
+| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Done on demo data. The activity log needs a database trigger in production so entries can't be faked. Holding period is a placeholder (`OFFICE.holdingDays`). |
+| Students can report a lost-report post | Done. Creates a flagged post and an office notification; one report per student per post. |
 | Auth (sign in/up, RTU-only domain, verify, reset) | Wired to Supabase Auth when env vars are set; demo otherwise. |
 | Data reads and writes (`src/data/api.ts`) | **In-memory mock.** Each function is the swap point for a Supabase query. The UI code does not change. |
 | AI search (`POST /api/search`) and match list (`GET /api/reports/:id/matches`) | Worker routes are written. The app falls back to local word overlap if the Worker is not running. |

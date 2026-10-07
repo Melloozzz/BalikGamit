@@ -10,7 +10,7 @@ export function Dashboard() {
   if (!claims) return <Loading />;
   const counts = dashboardCounts();
   const stats: { icon: IconName; n: number; label: string; to?: string }[] = [
-    { icon: "box", n: counts.inCustody, label: "Items in custody" },
+    { icon: "box", n: counts.inCustody, label: "Items in custody", to: "/admin/items" },
     { icon: "clock", n: counts.claimsToAct, label: "Claims needing action", to: "/admin/claims" },
     { icon: "flag", n: counts.flagged, label: "Flagged posts", to: "/admin/flagged" },
   ];

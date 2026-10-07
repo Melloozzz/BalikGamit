@@ -5,7 +5,7 @@ import { Icon } from "../components/Icon";
 import { Drawer, type NavItem } from "./Drawer";
 import { useAuth } from "../auth/AuthContext";
 import { ProfileMenu } from "../components/ProfileMenu";
-import { unreadCount, useDataVersion } from "../data/api";
+import { setActor, unreadCount, useDataVersion } from "../data/api";
 
 export function AdminLayout() {
   const [open, setOpen] = useState(false);
@@ -14,14 +14,26 @@ export function AdminLayout() {
   const isSuper = user?.role === "super_admin";
   useDataVersion();
   const unread = unreadCount("office");
+  // Demo mode: label audit-trail rows with the signed-in staff member (a database trigger does this in production).
+  if (user) setActor(user.fullName);
 
   const nav: NavItem[] = [
     { to: "/admin", label: "Dashboard", icon: "dashboard", end: true },
     { to: "/admin/log-item", label: "Log found item", icon: "plusCircle" },
+    { to: "/admin/items", label: "Found items", icon: "box" },
+    { to: "/admin/lost", label: "Lost reports", icon: "report" },
     { to: "/admin/claims", label: "Claim Queue", icon: "shield" },
+    { to: "/admin/unclaimed", label: "Unclaimed items", icon: "clock" },
     { to: "/admin/flagged", label: "Flagged posts", icon: "flag" },
+    { to: "/admin/reports", label: "Reports", icon: "chart" },
+    { to: "/admin/activity", label: "Activity log", icon: "history" },
     { to: "/admin/notifications", label: "Notifications & messages", icon: "bell" },
-    ...(isSuper ? [{ to: "/admin/admins", label: "Manage admins", icon: "users" } as NavItem] : []),
+    ...(isSuper
+      ? ([
+          { to: "/admin/admins", label: "Manage admins", icon: "users" },
+          { to: "/admin/places", label: "Categories & locations", icon: "tag" },
+        ] as NavItem[])
+      : []),
   ];
 
   const out = async () => {

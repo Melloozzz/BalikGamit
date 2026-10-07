@@ -97,19 +97,17 @@ export function Inbox({ who }: { who: "student" | "office" }) {
                   <Link to={claimHref(t.claim.id)} className={`thread-row ${t.awaitingYou ? "thread-row--waiting" : ""}`}>
                     <ItemPhoto src={t.photo} alt="" className="thread-row__thumb" />
                     <span className="thread-row__body">
-                      <span className="thread-row__top">
-                        <strong>{t.itemTitle}</strong>
-                        <small>{shortDateTime(t.last.at)}</small>
-                      </span>
+                      <strong className="thread-row__title">{t.itemTitle}</strong>
+                      <small className="thread-row__date">{shortDateTime(t.last.at)}</small>
                       <span className="thread-row__meta">
                         Claim {t.claim.id}
                         {office && t.claimantName ? ` · ${t.claimantName}` : ""} <ClaimBadge status={t.claim.status} />
                       </span>
+                      {t.awaitingYou && <span className="thread-row__flag">Reply needed</span>}
                       <span className="thread-row__preview">
                         <b>{mine ? "You" : office ? "Owner" : "Office"}:</b> {t.last.body}
                       </span>
                     </span>
-                    {t.awaitingYou && <span className="thread-row__flag">Reply needed</span>}
                     <Icon name="chevronRight" size={20} />
                   </Link>
                 </li>

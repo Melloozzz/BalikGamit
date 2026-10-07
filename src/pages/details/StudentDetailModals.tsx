@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
-import { CategoryPill, ItemPhoto, Loading } from "../../components/ui";
-import { getFoundItem, getPublicLostReport, listMyClaims } from "../../data/api";
+import { Alert, CategoryPill, ItemPhoto, Loading } from "../../components/ui";
+import { flagReport, getFoundItem, getPublicLostReport, listMyClaims } from "../../data/api";
+import type { FlagReason } from "../../data/types";
 import { OFFICE } from "../../data/mock";
 import { useAuth } from "../../auth/AuthContext";
 import { longDate } from "../../lib/format";
@@ -80,11 +82,18 @@ export function LostItemModal() {
   const { reportId = "" } = useParams();
   const { user } = useAuth();
   const report = useLoad(() => getPublicLostReport(reportId, user?.id), [reportId, user?.id]);
+  const [reporting, setReporting] = useState(false);
   if (report === undefined) return <Loading />;
   if (!report)
     return (
       <Modal label="Report not found" eyebrow="LOST ITEM" title="This report isn't listed anymore.">
         <p className="muted">The owner may have found it, or the report expired.</p>
+      </Modal>
+    );
+  if (reporting)
+    return (
+      <Modal narrow label={`Report the post ${report.title}`} eyebrow={`REPORT THIS POST · ${report.id}`} title={report.title}>
+        <ReportPostForm reportId={report.id} userId={user!.id} onBack={() => setReporting(false)} />
       </Modal>
     );
   return (
@@ -123,8 +132,100 @@ export function LostItemModal() {
               Browse found items
             </Link>
           )}
+          {!report.mine && (
+            <button type="button" className="report-link" onClick={() => setReporting(true)}>
+              <Icon name="flag" size={16} /> Report this post
+            </button>
+          )}
         </div>
       </div>
     </Modal>
+  );
+}
+
+const REASONS: { key: FlagReason; label: string; hint?: string }[] = [
+  { key: "contact", label: "It shows personal contact details", hint: "A phone number, email, social media account or student number." },
+  { key: "fake", label: "It’s fake, spam or a joke" },
+  { key: "offensive", label: "It’s offensive or inappropriate" },
+  { key: "other", label: "Something else" },
+];
+
+/** A student flags another student's lost report. The office decides whether to hide it. */
+function ReportPostForm({ reportId, userId, onBack }: { reportId: string; userId: string; onBack: () => void }) {
+  const [reason, setReason] = useState<FlagReason | "">("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (sent)
+    return (
+      <div className="report-done">
+        <span className="report-done__icon">
+          <Icon name="checkCircle" size={34} />
+        </span>
+        <h3>Thanks. The office will review this post.</h3>
+        <p className="muted">
+          If it breaks the posting rules, the office hides it and asks the owner to fix it. The owner never sees who reported it.
+        </p>
+        <button type="button" className="btn btn--navy btn--lg" onClick={onBack}>
+          Back to the post
+        </button>
+      </div>
+    );
+
+  async function send() {
+    if (!reason) return setError("Choose what’s wrong with this post.");
+    setBusy(true);
+    try {
+      await flagReport(reportId, userId, reason, note);
+      setSent(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="report-form">
+      <p className="report-form__lead">
+        Tell the office what’s wrong with this post. The person who posted it won’t see who reported it.
+      </p>
+      <fieldset className="report-form__reasons">
+        <legend className="field__label">What’s wrong?</legend>
+        {REASONS.map((r) => (
+          <label key={r.key} className={`reason ${reason === r.key ? "is-checked" : ""}`}>
+            <input
+              type="radio"
+              name="reason"
+              value={r.key}
+              checked={reason === r.key}
+              onChange={() => {
+                setReason(r.key);
+                setError("");
+              }}
+            />
+            <span>
+              <strong>{r.label}</strong>
+              {r.hint && <small>{r.hint}</small>}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <label className="field">
+        <span className="field__label">Anything else the office should know? (optional)</span>
+        <textarea className="input textarea" rows={3} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ex. The description has a Facebook link." />
+      </label>
+      {error && <Alert>{error}</Alert>}
+      <div className="form-buttons">
+        <button type="button" className="btn btn--navy btn--lg" onClick={send} disabled={busy}>
+          <Icon name="flag" size={18} /> Send report
+        </button>
+        <button type="button" className="btn btn--outline btn--lg" onClick={onBack}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }

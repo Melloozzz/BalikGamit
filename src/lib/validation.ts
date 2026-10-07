@@ -85,6 +85,8 @@ export const foundItemSchema = z.object({
   foundOn: z.string().min(1, "Pick the date it was found."),
   description: z.string().trim().min(10, "Describe what students will see.").max(500).refine(noContactDetails, "Remove contact details or ID numbers."),
   privateDetails: z.string().trim().min(5, "Record at least one detail a real owner would know.").max(500),
+  locationDetail: z.string().trim().max(80).optional(),
+  shelfTag: z.string().trim().max(10).optional(),
 });
 
 /** First error message per field, for showing under inputs. */
