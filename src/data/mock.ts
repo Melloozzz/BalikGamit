@@ -484,6 +484,9 @@ export const adminNotifications: Notification[] = [
   { id: "a3", kind: "flagged", title: "A lost report was flagged", detail: "White wireless earbuds · contains a phone number", at: "2026-10-03T08:50:00+08:00", read: false, href: "/admin/flagged" },
   { id: "a4", kind: "pickup_due", title: "Pickup deadline tomorrow", detail: "Keys with blue tag · Claim CL-491 · Mika Dela Cruz", at: "2026-10-06T07:00:00+08:00", read: true, href: "/admin/claims/CL-491/release" },
   { id: "a5", kind: "new_claim", title: "New claim filed", detail: "Black leather wallet · Claim CL-512", at: "2026-10-02T09:14:00+08:00", read: true, href: "/admin/claims/CL-512" },
+  { id: "a6", kind: "reply", title: "A claimant replied", detail: "Navy folding umbrella · Claim CL-497", at: "2026-09-29T13:22:00+08:00", read: true, href: "/admin/claims/CL-497" },
+  { id: "a7", kind: "flagged", title: "A lost report was flagged", detail: "Blue tumbler · possible spam", at: "2026-09-26T10:05:00+08:00", read: true, href: "/admin/flagged" },
+  { id: "a8", kind: "new_claim", title: "New claim filed", detail: "Scientific calculator · Claim CL-488", at: "2026-09-19T16:40:00+08:00", read: true, href: "/admin/claims/CL-488" },
 ];
 
 export const notifications: Notification[] = [
@@ -531,6 +534,33 @@ export const notifications: Notification[] = [
     at: "2026-09-30T11:00:00+08:00",
     read: true,
     href: "/reports",
+  },
+  {
+    id: "n6",
+    kind: "matches",
+    title: "1 possible match for your report",
+    detail: "Brown coin purse · tap to review it",
+    at: "2026-09-27T10:12:00+08:00",
+    read: true,
+    href: "/reports",
+  },
+  {
+    id: "n7",
+    kind: "rejected",
+    title: "A claim was not approved",
+    detail: "Scientific calculator · the details didn't match the item",
+    at: "2026-09-22T09:30:00+08:00",
+    read: true,
+    href: "/claims",
+  },
+  {
+    id: "n8",
+    kind: "approved",
+    title: "Your claim was approved",
+    detail: "House keys with red keychain · picked up September 25, 2026",
+    at: "2026-09-21T15:05:00+08:00",
+    read: true,
+    href: "/claims",
   },
 ];
 

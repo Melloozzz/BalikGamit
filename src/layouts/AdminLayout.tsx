@@ -5,6 +5,7 @@ import { Icon } from "../components/Icon";
 import { Drawer, type NavItem } from "./Drawer";
 import { useAuth } from "../auth/AuthContext";
 import { ProfileMenu } from "../components/ProfileMenu";
+import { NotificationMenu } from "../components/NotificationMenu";
 import { setActor, unreadCount, useDataVersion } from "../data/api";
 
 export function AdminLayout() {
@@ -55,10 +56,7 @@ export function AdminLayout() {
         </div>
         <div className="topbar__right">
           <span className="role-pill">{isSuper ? "Super admin" : "Faculty View"}</span>
-          <Link to="/admin/notifications" className="icon-btn topbar__bell" aria-label={`Notifications and messages, ${unread} unread`}>
-            <Icon name="bell" size={28} />
-            {unread > 0 && <span className="count-dot">{unread}</span>}
-          </Link>
+          <NotificationMenu who="office" unread={unread} />
           {user && <ProfileMenu user={user} profileTo="/admin/profile" settingsTo="/admin/settings" onSignOut={out} />}
         </div>
       </header>

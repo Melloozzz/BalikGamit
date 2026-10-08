@@ -5,6 +5,7 @@ import { Icon } from "../components/Icon";
 import { AppFooter } from "../components/Footer";
 import { Drawer, type NavItem } from "./Drawer";
 import { ProfileMenu } from "../components/ProfileMenu";
+import { NotificationMenu } from "../components/NotificationMenu";
 import { useAuth } from "../auth/AuthContext";
 import { unreadCount, useDataVersion } from "../data/api";
 
@@ -42,10 +43,7 @@ export function StudentLayout() {
           </Link>
         </div>
         <div className="topbar__right">
-          <Link to="/notifications" className="icon-btn icon-btn--light topbar__bell" aria-label={`Notifications, ${unread} unread`}>
-            <Icon name="bell" size={28} />
-            {unread > 0 && <span className="count-dot">{unread}</span>}
-          </Link>
+          <NotificationMenu who="student" unread={unread} light />
           {user && <ProfileMenu user={user} profileTo="/profile" settingsTo="/settings" onSignOut={out} />}
         </div>
       </header>

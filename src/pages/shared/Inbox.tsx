@@ -1,24 +1,11 @@
 import { Link, useSearchParams } from "react-router";
-import { Icon, type IconName } from "../../components/Icon";
+import { Icon } from "../../components/Icon";
+import { notifLook as look } from "../../components/NotificationMenu";
 import { BackButton, ClaimBadge, EmptyState, ItemPhoto, Loading, PageHead } from "../../components/ui";
 import { listNotifications, listThreads, markNotificationsRead } from "../../data/api";
-import type { Notification } from "../../data/types";
 import { useAuth } from "../../auth/AuthContext";
 import { shortDateTime } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
-
-const look: Record<Notification["kind"], { icon: IconName; tone: string }> = {
-  question: { icon: "message", tone: "amber" },
-  matches: { icon: "search", tone: "blue" },
-  approved: { icon: "check", tone: "green" },
-  expiring: { icon: "clock", tone: "red" },
-  hidden: { icon: "eyeOff", tone: "gray" },
-  rejected: { icon: "x", tone: "red" },
-  new_claim: { icon: "shield", tone: "blue" },
-  reply: { icon: "message", tone: "amber" },
-  flagged: { icon: "flag", tone: "red" },
-  pickup_due: { icon: "clock", tone: "amber" },
-};
 
 /** The bell page: notifications and claim messages in one place, for students and office staff. */
 export function Inbox({ who }: { who: "student" | "office" }) {
