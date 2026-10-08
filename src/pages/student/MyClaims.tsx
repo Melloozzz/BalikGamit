@@ -39,7 +39,7 @@ export function MyClaims() {
           <p>
             <b>The office has a question about your claim</b> for {itemFor(needsInfo.itemId)?.title}.
           </p>
-          <Link to={`/claims/${needsInfo.id}`} className="btn btn--navy btn--sm">
+          <Link to={`/claims/${needsInfo.id}`} state={{ from: "/claims" }} className="btn btn--navy btn--sm">
             Reply now
           </Link>
         </div>
@@ -54,7 +54,7 @@ export function MyClaims() {
             const item = itemFor(c.itemId)!;
             return (
               <li key={c.id}>
-                <Link to={`/claims/${c.id}`} className={`row-card ${c.status === "needs_info" ? "row-card--attention" : ""}`}>
+                <Link to={`/claims/${c.id}`} state={{ from: "/claims" }} className={`row-card ${c.status === "needs_info" ? "row-card--attention" : ""}`}>
                   <ItemPhoto src={item.photo} alt="" className="row-card__thumb" />
                   <div className="row-card__main">
                     <strong className="row-card__title">{item.title}</strong>

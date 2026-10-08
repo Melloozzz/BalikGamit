@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Alert, BackLink, CategoryPill, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
+import { Alert, BackButton, CategoryPill, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
 import { createClaim, getFoundItem } from "../../data/api";
 import { useAuth } from "../../auth/AuthContext";
 import { claimSchema, fieldErrors } from "../../lib/validation";
@@ -32,7 +32,8 @@ export function ClaimForm() {
     setBusy(true);
     try {
       const claim = await createClaim(user!.id, itemId, answers.map((a) => a.trim()), QUESTIONS);
-      navigate(`/claims/${claim.id}/submitted`);
+      // Replace the form so Back can't reopen a claim that was already sent.
+      navigate(`/claims/${claim.id}/submitted`, { replace: true });
     } catch (err) {
       setErrors({ _: (err as Error).message });
       setBusy(false);
@@ -41,7 +42,7 @@ export function ClaimForm() {
 
   return (
     <div className="container stack-lg">
-      <BackLink to={`/items/${item.id}`}>Back</BackLink>
+      <BackButton fallback={`/items/${item.id}`} />
       <form className="detail-card" onSubmit={submit} noValidate>
         <header>
           <p className="detail-card__eyebrow">CLAIMING {item.id}</p>

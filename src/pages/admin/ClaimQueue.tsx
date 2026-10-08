@@ -49,7 +49,7 @@ export function ClaimQueue() {
                 return (
                   <tr key={c.id}>
                     <td>
-                      <Link to={to} className="cell-item">
+                      <Link to={to} state={{ from: "/admin/claims" }} className="cell-item">
                         <ItemPhoto src={item.photo} alt="" className="cell-item__thumb" />
                         <span>
                           <strong>{item.title}</strong>
@@ -70,7 +70,7 @@ export function ClaimQueue() {
                       <ClaimBadge status={c.status} />
                     </td>
                     <td>
-                      <Link to={to} aria-label={`Open ${c.id}`} className="icon-btn">
+                      <Link to={to} state={{ from: "/admin/claims" }} aria-label={`Open ${c.id}`} className="icon-btn">
                         <Icon name="chevronRight" size={20} />
                       </Link>
                     </td>

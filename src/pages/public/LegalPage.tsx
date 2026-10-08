@@ -33,7 +33,7 @@ export function LegalPage({ title, effective, sections, footnote }: { title: str
         </section>
       ))}
       {footnote && <p className="legal__foot">{footnote}</p>}
-      <button type="button" className="btn btn--gold legal__back" onClick={() => navigate(-1)}>
+      <button type="button" className="btn btn--gold legal__back" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate("/"))}>
         Go Back
       </button>
     </article>

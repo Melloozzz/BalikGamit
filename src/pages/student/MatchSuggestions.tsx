@@ -6,8 +6,7 @@ import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 export function MatchSuggestions() {
-  const { reportId = "" } = useParams();
-  const report = useLoad(() => getReport(reportId), [reportId]);
+  const { reportId = "" } = useParams();  const report = useLoad(() => getReport(reportId), [reportId]);
   const matches = useLoad(() => getMatches(reportId), [reportId]);
   if (report === undefined || matches === undefined) return <Loading />;
   if (report === null)

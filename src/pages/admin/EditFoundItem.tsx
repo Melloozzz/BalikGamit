@@ -43,7 +43,7 @@ export function EditFoundItem() {
       )}
       {closed ? (
         <Alert tone="info">
-          This item is no longer with the office, so it can’t be edited. <Link to="/admin/items">Back to found items</Link>
+          This item is no longer with the office, so it can’t be edited. <Link to="/admin/items" replace>Back to found items</Link>
         </Alert>
       ) : (
         <FoundItemForm
@@ -64,7 +64,7 @@ export function EditFoundItem() {
             back();
           }}
           actions={
-            <button type="button" className="btn btn--outline btn--lg" onClick={() => navigate(-1)}>
+            <button type="button" className="btn btn--outline btn--lg" onClick={back}>
               Cancel
             </button>
           }
