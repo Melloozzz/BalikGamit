@@ -21,6 +21,7 @@ import "./styles/auth.css";
 import "./styles/site.css";
 import "./styles/app.css";
 import "./styles/admin.css";
+import "./styles/mobile.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

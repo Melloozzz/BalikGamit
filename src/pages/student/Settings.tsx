@@ -39,8 +39,58 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
   return (
     <div className="container container--mid stack-lg">
       <BackButton fallback={office ? "/admin" : "/home"} />
-      <PageHead eyebrow={office ? "OFFICE ACCOUNT" : undefined} title="Settings" lead="Manage your profile, password, and notifications." />
+      <PageHead
+        eyebrow={office ? "OFFICE ACCOUNT" : undefined}
+        title="Settings"
+        lead={office ? "Office tools, your profile, password and notifications." : "Manage your profile, password, and notifications."}
+      />
       {saved && <Alert tone="success">{saved}</Alert>}
+
+      {office && (
+        <section className="panel panel--white tools" aria-labelledby="tools-h">
+          <h2 id="tools-h" className="panel__title">
+            Office tools
+          </h2>
+          <Link to="/admin/activity" className="tools__row">
+            <span className="tools__icon">
+              <Icon name="history" size={22} />
+            </span>
+            <span className="tools__text">
+              <strong>Activity log</strong>
+              <span>Who logged, edited, released, donated or disposed of items</span>
+            </span>
+            <Icon name="chevronRight" size={20} />
+          </Link>
+          {user?.role === "super_admin" && (
+            <>
+              <Link to="/admin/admins" className="tools__row">
+                <span className="tools__icon">
+                  <Icon name="users" size={22} />
+                </span>
+                <span className="tools__text">
+                  <strong>
+                    Manage admins <span className="tools__only">Super admin only</span>
+                  </strong>
+                  <span>Add office staff, set roles and deactivate accounts</span>
+                </span>
+                <Icon name="chevronRight" size={20} />
+              </Link>
+              <Link to="/admin/places" className="tools__row">
+                <span className="tools__icon">
+                  <Icon name="tag" size={22} />
+                </span>
+                <span className="tools__text">
+                  <strong>
+                    Categories &amp; locations <span className="tools__only">Super admin only</span>
+                  </strong>
+                  <span>Add, rename or archive the lists students choose from</span>
+                </span>
+                <Icon name="chevronRight" size={20} />
+              </Link>
+            </>
+          )}
+        </section>
+      )}
 
       <form className={panel} onSubmit={saveProfile}>
         <h2 className="panel__title">Profile</h2>

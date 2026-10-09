@@ -8,10 +8,10 @@ import { shortDateTime } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 /** The bell page: notifications and claim messages in one place, for students and office staff. */
-export function Inbox({ who }: { who: "student" | "office" }) {
+export function Inbox({ who, only }: { who: "student" | "office"; only?: "messages" }) {
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "messages" ? "messages" : "notifications";
+  const tab = only === "messages" || params.get("tab") === "messages" ? "messages" : "notifications";
   const office = who === "office";
   const notes = useLoad(() => listNotifications(who), [who]);
   const threads = useLoad(() => listThreads(office ? "office" : "owner", user?.id), [who, user?.id]);
@@ -23,12 +23,20 @@ export function Inbox({ who }: { who: "student" | "office" }) {
   const setTab = (t: string) => setParams(t === "messages" ? { tab: "messages" } : {}, { replace: true });
 
   return (
-    <div className="container container--mid stack-lg">
+    <div className={`container container--mid stack-lg inbox ${only ? "inbox--messages" : ""}`}>
       <BackButton fallback={office ? "/admin" : "/home"} />
       <PageHead
         eyebrow={office ? "OFFICE INBOX" : undefined}
-        title="Notifications"
-        lead={office ? "New claims, replies from claimants, and items that need attention." : "Updates on your reports and claims, and messages from the office."}
+        title={only ? "Messages" : "Notifications"}
+        lead={
+          only
+            ? office
+              ? "Conversations with claimants, one per claim."
+              : "Conversations with the office about your claims."
+            : office
+              ? "New claims, replies from claimants, and items that need attention."
+              : "Updates on your reports and claims, and messages from the office."
+        }
         actions={
           tab === "notifications" &&
           unread.length > 0 && (
@@ -38,6 +46,7 @@ export function Inbox({ who }: { who: "student" | "office" }) {
           )
         }
       />
+      {!only && (
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "notifications"} className={`tab ${office ? "tab--blue" : ""} ${tab === "notifications" ? "is-active" : ""}`} onClick={() => setTab("notifications")}>
           <Icon name="bell" size={16} /> Notifications{unread.length > 0 && <span className="tab__count">{unread.length}</span>}
@@ -46,6 +55,7 @@ export function Inbox({ who }: { who: "student" | "office" }) {
           <Icon name="message" size={16} /> Messages{waiting.length > 0 && <span className="tab__count">{waiting.length}</span>}
         </button>
       </div>
+      )}
 
       {tab === "notifications" ? (
         notes.length === 0 ? (

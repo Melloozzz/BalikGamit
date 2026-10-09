@@ -7,6 +7,7 @@ import { CATEGORIES, LOCATIONS } from "../../data/mock";
 import type { FoundItem } from "../../data/types";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
+import { AttentionStrip } from "./AttentionStrip";
 
 const sinceFor = (range: string) => {
   if (!range) return undefined;
@@ -37,8 +38,8 @@ export function Home() {
   }
 
   return (
-    <div className="container stack-lg">
-      <header className="page-head">
+    <div className="container stack-lg home">
+      <header className="page-head home__head">
         <div className="page-head__text">
           <h1 className="page-title page-title--xl">Browse Items</h1>
           <p className="page-lead">Search through all approved lost and found items on campus.</p>
@@ -62,6 +63,7 @@ export function Home() {
               <span className="sr-only">Search items</span>
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search items..." />
             </label>
+            <div className="search-panel__filters">
             <FilterSelect label="Category" value={category} onChange={setCategory} all="All categories" options={CATEGORIES} />
             <FilterSelect label="Location" value={location} onChange={setLocation} all="All locations" options={LOCATIONS} />
             <FilterSelect
@@ -72,6 +74,7 @@ export function Home() {
               options={["7", "30", "90"]}
               labels={{ "7": "Past 7 days", "30": "Past 30 days", "90": "Past 90 days" }}
             />
+            </div>
           </div>
         </section>
       ) : (
@@ -96,6 +99,8 @@ export function Home() {
           </form>
         </section>
       )}
+
+      <AttentionStrip />
 
       {mode === "ai" && aiResults ? (
         <section className="stack">

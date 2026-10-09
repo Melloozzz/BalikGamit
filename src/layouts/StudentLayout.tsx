@@ -7,15 +7,16 @@ import { Drawer, type NavItem } from "./Drawer";
 import { ProfileMenu } from "../components/ProfileMenu";
 import { NotificationMenu } from "../components/NotificationMenu";
 import { useAuth } from "../auth/AuthContext";
-import { unreadCount, useDataVersion } from "../data/api";
+import { listThreads, unreadCount, useDataVersion } from "../data/api";
+import { TabBar } from "../components/TabBar";
+import { useLoad } from "../lib/useLoad";
 
 const nav: NavItem[] = [
   { to: "/home", label: "Home", icon: "home" },
   { to: "/report", label: "Report lost item", icon: "report", end: true },
   { to: "/reports", label: "My Reports", icon: "claims" },
   { to: "/claims", label: "My Claims", icon: "shield" },
-  { to: "/notifications", label: "Notifications & messages", icon: "bell" },
-  { to: "/settings", label: "Settings", icon: "settings" },
+  { to: "/messages", label: "Messages", icon: "message" },
 ];
 
 export function StudentLayout() {
@@ -24,6 +25,8 @@ export function StudentLayout() {
   const navigate = useNavigate();
   useDataVersion();
   const unread = unreadCount();
+  const threads = useLoad(() => listThreads("owner", user?.id), [user?.id]);
+  const waiting = threads ? threads.filter((t) => t.awaitingYou).length : 0;
 
   const out = async () => {
     await signOut();
@@ -31,7 +34,7 @@ export function StudentLayout() {
   };
 
   return (
-    <div className="app">
+    <div className="app app--student">
       <header className="topbar">
         <div className="topbar__left">
           <button className="icon-btn icon-btn--light" onClick={() => setOpen(true)} aria-label="Open menu" aria-expanded={open}>
@@ -52,6 +55,7 @@ export function StudentLayout() {
         <Outlet />
       </main>
       <AppFooter />
+      <TabBar waiting={waiting} />
     </div>
   );
 }
