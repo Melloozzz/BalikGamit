@@ -5,7 +5,8 @@ Repo: github.com/Melloozzz/BalikGamit (the robszzs/BalikGamit repo is a differen
 
 ## Stack
 - React 19 + TypeScript on Vite, React Router, zod. Tests: Vitest.
-- One Cloudflare Worker (Hono) in `worker/` serves `/api/*` (AI search and match ranking via Groq `openai/gpt-oss-120b`).
+- One Cloudflare Worker (Hono) in `worker/` serves `/api/*` (match ranking via Groq `openai/gpt-oss-120b`).
+- LLM use is limited to ranking possible matches for lost items and explaining a lost item's details. There is no AI search; don't add one.
 - Supabase for auth, Postgres and storage — **not wired yet**.
 
 ## Run

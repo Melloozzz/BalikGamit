@@ -56,7 +56,7 @@ export function LostReports() {
         </Link>
       )}
       <section className="search-panel" aria-label="Filter lost reports">
-        <div className="search-panel__row">
+        <div className="search-panel__row search-panel__row--split">
           <SearchBox value={q} onChange={setQ} placeholder="Search by item, ID, owner name or email..." />
           <Filter label="Category" value={category} onChange={setCategory} all="All categories" options={CATEGORIES} />
           <Filter label="Location" value={location} onChange={setLocation} all="All locations" options={LOCATIONS} />

@@ -1,5 +1,7 @@
 // The only place that talks to Groq. Keep the model name in config (GROQ_MODEL) so a
 // model change is a one-line edit. Only PUBLIC fields are ever sent here.
+// Not called yet: rankCandidates is for the match-job consumer (ai_jobs, cron in index.ts),
+// which still has to be written. Its tests guard the privacy whitelist until then.
 
 export interface Candidate {
   id: string;

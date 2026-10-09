@@ -2,7 +2,6 @@
 // and the API below. The browser talks to Supabase directly for ordinary reads/writes
 // under RLS; this Worker only handles secrets, AI calls, privileged admin actions and cron.
 import { Hono } from "hono";
-import { rankCandidates, GroqRateLimited, type Candidate } from "./ai/groqClient";
 
 interface Env {
   ASSETS: Fetcher;
@@ -45,30 +44,6 @@ app.use("*", async (c, next) => {
   const user = (await res.json()) as { id: string };
   c.set("userId", user.id);
   await next();
-});
-
-/**
- * AI search. Narrow-then-rank: SQL narrows open found items to 20 candidates
- * (category/location are scored, not filtered), then Groq ranks them.
- */
-app.post("/search", async (c) => {
-  const { query } = await c.req.json<{ query: string }>();
-  if (!query || query.length > 500) return c.json({ error: "bad_query" }, 400);
-  if (!c.env.GROQ_API_KEY) return c.json({ error: "ai_unavailable" }, 503);
-
-  // `search_found_candidates` is a SQL function returning public columns only.
-  const candidates = await rest<Candidate[]>(c.env, "rpc/search_found_candidates", {
-    method: "POST",
-    body: JSON.stringify({ q: query, max_rows: 20 }),
-  });
-  try {
-    const ranked = await rankCandidates(c.env, query, candidates);
-    const byId = new Map(candidates.map((x) => [x.id, x]));
-    return c.json({ items: ranked.map((r) => byId.get(r.id)) });
-  } catch (err) {
-    if (err instanceof GroqRateLimited) return c.json({ error: "busy", retryAfter: err.retryAfterSeconds }, 429);
-    throw err;
-  }
 });
 
 /** Stored match suggestions for one of the caller's lost reports. */

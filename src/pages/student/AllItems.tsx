@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { BackButton, EmptyState, ItemCard, Loading, PageHead, toCard } from "../../components/ui";
-import { Icon } from "../../components/Icon";
-import { listFoundItems, listPublicLostReports } from "../../data/api";
-import { CATEGORIES, LOCATIONS } from "../../data/mock";
+import { Filter, SearchBox } from "../../components/Filters";
+import { CATEGORIES, LOCATIONS, listFoundItems, listPublicLostReports } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
@@ -46,22 +45,19 @@ export function AllItems({ kind }: { kind: "found" | "lost" }) {
         }
       />
       <section className="search-panel" aria-label="Filter items">
-        <div className="search-panel__row">
-          <label className="search-input">
-            <Icon name="search" size={20} />
-            <span className="sr-only">Search</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={kind === "found" ? "Search found items..." : "Search lost items..."} />
-          </label>
+        <div className="search-panel__row search-panel__row--split">
+          <SearchBox value={q} onChange={setQ} placeholder={kind === "found" ? "Search found items..." : "Search lost items..."} />
           <Filter label="Category" value={category} onChange={setCategory} all="All categories" options={CATEGORIES} />
           <Filter label="Location" value={location} onChange={setLocation} all="All locations" options={LOCATIONS} />
-          <label className="filter">
-            <span className="sr-only">Sort</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value as "new" | "old")}>
-              <option value="new">Newest first</option>
-              <option value="old">Oldest first</option>
-            </select>
-            <Icon name="chevronDown" size={18} />
-          </label>
+          <Filter
+            label="Sort"
+            value={sort}
+            onChange={(v) => setSort(v as "new" | "old")}
+            options={[
+              { value: "new", label: "Newest first" },
+              { value: "old", label: "Oldest first" },
+            ]}
+          />
         </div>
       </section>
       {!sorted ? (
@@ -83,20 +79,5 @@ export function AllItems({ kind }: { kind: "found" | "lost" }) {
         </>
       )}
     </div>
-  );
-}
-
-function Filter({ label, value, onChange, all, options }: { label: string; value: string; onChange: (v: string) => void; all: string; options: string[] }) {
-  return (
-    <label className="filter">
-      <span className="sr-only">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{all}</option>
-        {options.map((o) => (
-          <option key={o}>{o}</option>
-        ))}
-      </select>
-      <Icon name="chevronDown" size={18} />
-    </label>
   );
 }

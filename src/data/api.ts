@@ -2,7 +2,7 @@
 // the real backend means replacing the bodies here, not the pages:
 //   - plain reads/writes  -> supabase.from(...) under row-level security
 //   - status changes      -> supabase.rpc(...) database functions (they check allowed transitions)
-//   - AI matching/search  -> fetch("/api/...") on the Cloudflare Worker
+//   - AI matching         -> fetch("/api/...") on the Cloudflare Worker
 // In demo mode the functions work on the in-memory sample data in ./mock.ts.
 import { useSyncExternalStore } from "react";
 import * as db from "./mock";
@@ -24,6 +24,13 @@ import type {
 import { ON_SHELF } from "./types";
 import { todayIso } from "../lib/format";
 import { supabase } from "../lib/supabase";
+
+// Reference lists and office settings. Pages read them from here, never from mock.ts, so this
+// stays the one swap point when they move to the database.
+export { CATEGORIES, LOCATIONS, OFFICE } from "./mock";
+
+/** Dropdown options for a record: an archived category or location it already uses stays selectable. */
+export const withCurrent = (list: string[], value: string) => (value && !list.includes(value) ? [...list, value] : list);
 
 /** The Worker checks this token on every /api call. */
 async function authHeaders(): Promise<Record<string, string>> {
@@ -93,33 +100,6 @@ export function listFoundItems(f: ItemFilters = {}): Promise<FoundItem[]> {
 export async function getFoundItem(id: string, opts: { admin?: boolean } = {}) {
   const item = db.foundItems.find((i) => i.id === id);
   return delay(item ? (opts.admin ? item : toPublic(item)) : null);
-}
-
-/**
- * AI-powered search: the Worker sends the query and the public fields of up to 20
- * narrowed candidates to Groq and returns them ranked. Demo mode ranks by word overlap.
- */
-export async function aiSearch(query: string): Promise<FoundItem[]> {
-  try {
-    const res = await fetch("/api/search", {
-      method: "POST",
-      headers: { "content-type": "application/json", ...(await authHeaders()) },
-      body: JSON.stringify({ query }),
-    });
-    if (res.ok) return ((await res.json()) as { items: FoundItem[] }).items;
-  } catch {
-    /* Worker not running: fall back to local ranking */
-  }
-  const words = query.toLowerCase().match(/[a-z0-9]+/g) ?? [];
-  const scored = db.foundItems
-    .filter((i) => ON_SHELF.includes(i.status))
-    .map((i) => {
-      const hay = `${i.title} ${i.description} ${i.category} ${i.location}`.toLowerCase();
-      return { i, score: words.filter((w) => w.length > 2 && hay.includes(w)).length };
-    })
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score);
-  return delay(scored.map((s) => toPublic(s.i)), 400);
 }
 
 export async function logFoundItem(input: Omit<FoundItem, "id" | "status">) {

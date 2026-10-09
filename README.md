@@ -35,8 +35,8 @@ To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both va
 | Students can report a lost-report post | Done. Creates a flagged post and an office notification; one report per student per post. |
 | Auth (sign in/up, RTU-only domain, verify, reset) | Wired to Supabase Auth when env vars are set; demo otherwise. |
 | Data reads and writes (`src/data/api.ts`) | **In-memory mock.** Each function is the swap point for a Supabase query. The UI code does not change. |
-| AI search (`POST /api/search`) and match list (`GET /api/reports/:id/matches`) | Worker routes are written. The app falls back to local word overlap if the Worker is not running. |
-| Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler. |
+| Match list (`GET /api/reports/:id/matches`) | Worker route is written. The app falls back to local word overlap if the Worker is not running. |
+| Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler that calls `rankCandidates` (`worker/ai/groqClient.ts`), which is written and tested but not called anywhere yet. |
 | Expiry (90-day reports, 5-day pickup) | The cron calls `expire_old_reports` / `expire_unclaimed_pickups`. **These SQL functions still have to be written.** |
 | Photo upload | UI only. It is not yet sent to Supabase Storage. |
 | Email notifications | Toggles only. No sender yet. |
@@ -57,7 +57,6 @@ There are no migrations in this repo yet. These are the names the code uses:
   - `notifications`
   - `flagged_posts`
 - RPCs:
-  - `search_found_candidates(q, max)`, which returns public fields only and at most 20 rows
   - `expire_old_reports()`
   - `expire_unclaimed_pickups()`
 - Status enums match `src/data/types.ts` exactly.

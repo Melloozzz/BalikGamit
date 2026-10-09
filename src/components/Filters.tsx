@@ -1,6 +1,7 @@
 import { Icon } from "./Icon";
+import { Dropdown } from "./Dropdown";
 
-/** Search box + dropdown filters used on the office list pages. */
+/** Search box + dropdown filters used on the list pages. */
 export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
     <label className="search-input">
@@ -11,6 +12,7 @@ export function SearchBox({ value, onChange, placeholder }: { value: string; onC
   );
 }
 
+/** Dropdown filter. `all` adds a first "no filter" option (value ""); leave it out for a plain choice like Sort. */
 export function Filter({
   label,
   value,
@@ -21,26 +23,18 @@ export function Filter({
   label: string;
   value: string;
   onChange: (v: string) => void;
-  all: string;
+  all?: string;
   options: string[] | { value: string; label: string }[];
 }) {
+  const items = [
+    ...(all !== undefined ? [{ value: "", text: all }] : []),
+    ...options.map((o) => (typeof o === "string" ? { value: o, text: o } : { value: o.value, text: o.label })),
+  ];
   return (
-    <label className="filter">
-      <span className="sr-only">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{all}</option>
-        {options.map((o) =>
-          typeof o === "string" ? (
-            <option key={o}>{o}</option>
-          ) : (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ),
-        )}
-      </select>
+    <div className="filter">
+      <Dropdown className="filter__btn" label={label} value={value} items={items} onChange={onChange} />
       <Icon name="chevronDown" size={18} />
-    </label>
+    </div>
   );
 }
 

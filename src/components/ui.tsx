@@ -1,9 +1,10 @@
-import { useId, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, useState, type ChangeEvent, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { ClaimStatus, FoundItem, LostReportStatus, FoundItemStatus, Likelihood } from "../data/types";
 import { Icon, type IconName } from "./Icon";
 import logo from "../assets/logo.png";
 import { ModalLink } from "./Modal";
+import { Dropdown } from "./Dropdown";
 
 // ---- status badges -------------------------------------------------------------------
 type Tone = "amber" | "green" | "red" | "gray" | "blue" | "navy";
@@ -182,17 +183,13 @@ export function SelectField({
   ...select
 }: FieldShell & SelectHTMLAttributes<HTMLSelectElement> & { options: string[]; placeholder: string }) {
   const id = useId();
+  const items = [{ value: "", text: placeholder }, ...options.map((o) => ({ value: o, text: o }))];
+  // Callers read e.target.value, so the pick is passed on in that shape.
+  const pick = (v: string) => select.onChange?.({ target: { value: v }, currentTarget: { value: v } } as ChangeEvent<HTMLSelectElement>);
   return (
     <Shell id={id} label={label} error={error} hint={hint} required={required} className={className}>
       <div className="select-wrap">
-        <select id={id} className="input select" aria-invalid={!!error} {...select}>
-          <option value="">{placeholder}</option>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </select>
+        <Dropdown id={id} className="input select" label={typeof label === "string" ? label : placeholder} value={String(select.value ?? "")} items={items} invalid={!!error} onChange={pick} />
         <Icon name="chevronDown" size={18} className="select-wrap__icon" />
       </div>
     </Shell>
@@ -254,14 +251,18 @@ export function BackLink({ to, children }: { to: string; children: ReactNode }) 
   );
 }
 
-/** Goes back one page; if the page was opened directly (no history), goes to `fallback`. */
+/**
+ * Goes back one page; if the page was opened directly (no history), replaces it with `fallback`.
+ * Replacing (not pushing) matters: a pushed fallback leaves this page behind it, so the fallback's
+ * own Back button would step straight back here.
+ */
 export function BackButton({ fallback, label = "Back" }: { fallback: string; label?: string }) {
   const navigate = useNavigate();
   return (
     <button
       type="button"
       className="back-link"
-      onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate(fallback))}
+      onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate(fallback, { replace: true }))}
     >
       <Icon name="chevronLeft" size={18} strokeWidth={2} />
       {label}

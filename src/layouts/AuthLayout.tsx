@@ -49,7 +49,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <Icon name="info" size={28} />
         <p>
           BalikGamit only asks for the details needed to confirm a belonging is yours. Item listings are visible only to signed-in
-          RTU users.
+          RTU users. Report descriptions are processed by a third-party AI service to suggest possible matches.
         </p>
       </footer>
     </div>

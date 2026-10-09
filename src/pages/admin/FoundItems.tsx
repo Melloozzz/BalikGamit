@@ -64,7 +64,7 @@ export function FoundItems() {
         </Link>
       )}
       <section className="search-panel" aria-label="Filter found items">
-        <div className="search-panel__row">
+        <div className="search-panel__row search-panel__row--split">
           <SearchBox value={q} onChange={setQ} placeholder="Search by name, ID or shelf tag..." />
           <Filter label="Category" value={category} onChange={setCategory} all="All categories" options={CATEGORIES} />
           <Filter label="Location" value={location} onChange={setLocation} all="All locations" options={LOCATIONS} />

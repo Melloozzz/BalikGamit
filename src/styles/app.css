@@ -212,15 +212,6 @@
   flex-direction: column;
   gap: 16px;
 }
-.search-panel--ai {
-  background: var(--ai-panel);
-}
-.search-panel__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
 .search-panel__label {
   display: flex;
   align-items: center;
@@ -229,37 +220,10 @@
   font-weight: 600;
   color: var(--navy-900);
 }
-.search-panel__hint {
-  margin-top: -10px;
-  color: #1c2a4d;
-  font-size: 16px;
-}
 .search-panel__row {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-}
-.mode-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  background: none;
-  color: var(--ink-3);
-  font-size: 17px;
-}
-.mode-switch__icon,
-.mode-switch--round {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #6f8fd8;
-  color: var(--navy-950);
-}
-.mode-switch--round {
-  background: #d9d9d9;
 }
 .search-input {
   flex: 1 1 320px;
@@ -291,10 +255,9 @@
   flex: 0 1 190px;
   min-width: 150px;
 }
-.filter select {
+.filter__btn {
   width: 100%;
   min-height: 52px;
-  appearance: none;
   padding: 0 40px 0 16px;
   border: 0;
   border-radius: 10px;
@@ -308,6 +271,65 @@
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
+}
+
+/* Dropdowns (components/Dropdown.tsx): the trigger buttons look like the selects they
+   replace, and the list uses the app's font and colours instead of the system picker. */
+.filter__btn,
+.select-wrap > button.select {
+  display: block;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.select-wrap > button.select.is-empty {
+  color: #6b6f78;
+}
+.filter__btn[aria-expanded="true"],
+.select-wrap > button.select[aria-expanded="true"] {
+  outline: 3px solid var(--gold);
+}
+.dropdown {
+  position: fixed;
+  z-index: 70;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #d5d8de;
+  box-shadow: 0 16px 40px rgba(0, 26, 73, 0.18);
+  font-family: var(--font-body);
+}
+.dropdown__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--ink);
+  cursor: pointer;
+}
+.dropdown__option:hover,
+.dropdown__option:focus-visible,
+.dropdown__option:active {
+  outline: 0;
+  background: #eef1f6;
+}
+.dropdown__option[aria-selected="true"] {
+  font-weight: 700;
+  color: var(--navy-800);
+  background: #eef1f6;
+}
+.dropdown__option svg {
+  color: var(--gold);
+  flex-shrink: 0;
 }
 .section-label {
   display: flex;

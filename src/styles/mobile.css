@@ -1,44 +1,7 @@
 /* ---------------------------------------------------------------------------
-   Redesign (Oct 2026): AI search in the header colour, Office tools in Settings,
-   and an app-style phone layout (bottom tabs, compact list cards, smaller type).
+   Redesign (Oct 2026): Office tools in Settings and an app-style phone layout
+   (bottom tabs, compact list cards, smaller type).
    --------------------------------------------------------------------------- */
-
-/* AI-Powered Search: the bar takes the header colour (all sizes). */
-.search-panel--ai {
-  background: var(--navy-800);
-}
-.search-panel--ai .search-panel__label {
-  color: #fff;
-}
-.search-panel--ai .search-panel__label svg {
-  color: var(--gold);
-}
-.search-panel--ai .search-panel__hint {
-  color: #c9d5ea;
-}
-.search-panel--ai .mode-switch--round {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-.search-panel--ai .search-input {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #fff;
-}
-.search-panel--ai .search-input input {
-  color: #fff;
-}
-.search-panel--ai .search-input input::placeholder {
-  color: #c9d5ea;
-}
-.search-panel--ai .btn--navy {
-  background: var(--gold);
-  color: var(--navy-950);
-}
-.search-panel--ai .btn--navy:hover:not(:disabled) {
-  background: #c49610;
-  color: var(--navy-950);
-}
 
 /* Office tools (Settings): Activity log, Manage admins, Categories & locations. */
 .tools {
@@ -281,6 +244,17 @@
     display: none;
   }
 
+  /* Bell pop-up: pinned under the header, edge to edge, so the avatar
+     beside the bell can't push it off the left side. Scrolls inside. */
+  .notif-menu__panel {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: 68px;
+    width: auto;
+    max-height: calc(100 * var(--vh) - 68px - 16px);
+  }
+
   /* Student: bottom tabs replace the menu, footer and avatar. */
   .app--student .topbar__left > .icon-btn,
   .app--student .topbar .profile-menu,
@@ -348,31 +322,13 @@
   }
   .home .search-panel {
     margin: -20px calc(-1 * var(--gutter)) 0;
-    padding: 6px var(--gutter) 22px;
+    padding: 10px var(--gutter) 22px;
     border-radius: 0 0 24px 24px;
     background: var(--navy-800);
     gap: 12px;
   }
   .home .search-panel__label {
     display: none;
-  }
-  .home .search-panel--ai .search-panel__label {
-    display: flex;
-    font-size: 17px;
-  }
-  .home .search-panel__top {
-    justify-content: flex-end;
-  }
-  .home .mode-switch {
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-  }
-  .home .mode-switch__icon {
-    width: 32px;
-    height: 32px;
-    background: rgba(217, 167, 19, 0.18);
-    color: var(--gold);
   }
   .home .search-panel__row {
     gap: 10px;
@@ -381,12 +337,6 @@
     flex: 1 1 100%;
     min-height: 48px;
     border-radius: 999px;
-  }
-  .home .search-panel--ai .search-input {
-    border-radius: 14px;
-  }
-  .home .search-panel--ai .btn {
-    flex: 1 1 100%;
   }
   .home .search-panel__filters {
     display: flex;
@@ -404,7 +354,7 @@
     flex: 0 0 auto;
     min-width: 0;
   }
-  .home .filter select {
+  .home .filter__btn {
     min-height: 38px;
     border-radius: 999px;
     padding: 0 26px 0 12px;
@@ -414,6 +364,31 @@
   .home .filter svg {
     right: 8px;
     width: 15px;
+  }
+
+  /* List pages: search on top, Category and Location side by side, Sort below. */
+  .search-panel__row--split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .search-panel__row--split > .search-input,
+  .search-panel__row--split > .filter:nth-child(n + 4) {
+    grid-column: 1 / -1;
+  }
+  .search-panel__row--split > .filter {
+    min-width: 0;
+  }
+  .search-panel:has(.search-panel__row--split) {
+    padding: 16px;
+  }
+  .search-panel__row--split .filter__btn {
+    padding: 0 30px 0 12px;
+    font-size: 15px;
+    text-overflow: ellipsis;
+  }
+  .search-panel__row--split .filter svg {
+    right: 10px;
   }
 
   .attention {
@@ -1110,7 +1085,7 @@
     padding-top: 18px;
   }
   .auth__hero {
-    padding: 28px 0 22px;
+    padding: 44px 0 36px;
     gap: 12px;
   }
   .hero-title {
