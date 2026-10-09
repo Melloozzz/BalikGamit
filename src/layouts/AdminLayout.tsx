@@ -27,14 +27,7 @@ export function AdminLayout() {
     { to: "/admin/unclaimed", label: "Unclaimed items", icon: "clock" },
     { to: "/admin/flagged", label: "Flagged posts", icon: "flag" },
     { to: "/admin/reports", label: "Reports", icon: "chart" },
-    { to: "/admin/activity", label: "Activity log", icon: "history" },
-    { to: "/admin/notifications", label: "Notifications & messages", icon: "bell" },
-    ...(isSuper
-      ? ([
-          { to: "/admin/admins", label: "Manage admins", icon: "users" },
-          { to: "/admin/places", label: "Categories & locations", icon: "tag" },
-        ] as NavItem[])
-      : []),
+    { to: "/admin/messages", label: "Messages", icon: "message" },
   ];
 
   const out = async () => {

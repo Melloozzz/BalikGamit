@@ -28,7 +28,7 @@ export function ManageAdmins() {
 
   return (
     <div className="container stack-lg">
-      <BackButton fallback="/admin" />
+      <BackButton fallback="/admin/settings" />
       <PageHead eyebrow="SUPER ADMIN" title="Manage admins" lead="Admins log found items, review claims and moderate posts. Nobody can sign up as an admin." />
       <div className="two-col two-col--admins">
         <div className="table-card table-scroll">

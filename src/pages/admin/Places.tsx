@@ -10,7 +10,7 @@ export function Places() {
   useDataVersion();
   return (
     <div className="container stack-lg">
-      <BackButton fallback="/admin" />
+      <BackButton fallback="/admin/settings" />
       <PageHead
         eyebrow="SUPER ADMIN SETTINGS"
         title="Categories & locations"

@@ -51,7 +51,7 @@ export function ActivityLog() {
 
   return (
     <div className="container stack-lg">
-      <BackButton fallback="/admin" />
+      <BackButton fallback="/admin/settings" />
       <PageHead eyebrow="AUDIT TRAIL" title="Activity log" lead="Every office action, newest first. Entries are recorded automatically and can’t be edited or deleted." />
       <section className="search-panel" aria-label="Filter activity">
         <div className="search-panel__row">

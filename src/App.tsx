@@ -33,6 +33,7 @@ import { AllItems } from "./pages/student/AllItems";
 import { Inbox } from "./pages/shared/Inbox";
 import { ProfilePage } from "./pages/shared/ProfilePage";
 import { Settings } from "./pages/student/Settings";
+import { Account } from "./pages/student/Account";
 
 import { Dashboard } from "./pages/admin/Dashboard";
 import { LogFoundItem } from "./pages/admin/LogFoundItem";
@@ -120,6 +121,8 @@ export function App() {
           <Route path="reports" element={<MyReports />} />
           <Route path="reports/:reportId/matches" element={<MatchSuggestions />} />
           <Route path="notifications" element={<Inbox who="student" />} />
+          <Route path="messages" element={<Inbox who="student" only="messages" />} />
+          <Route path="account" element={<Account />} />
           <Route path="profile" element={<ProfilePage area="student" />} />
           <Route path="settings" element={<Settings />} />
         </Route>
@@ -145,6 +148,7 @@ export function App() {
           <Route path="activity" element={<ActivityLog />} />
           <Route path="flagged" element={<FlaggedPosts />} />
           <Route path="notifications" element={<Inbox who="office" />} />
+          <Route path="messages" element={<Inbox who="office" only="messages" />} />
           <Route path="profile" element={<ProfilePage area="office" />} />
           <Route path="settings" element={<Settings area="office" />} />
           <Route
