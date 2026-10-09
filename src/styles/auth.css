@@ -263,8 +263,17 @@
   flex-shrink: 0;
   accent-color: var(--navy-900);
 }
-.consent a {
+.consent a,
+.consent__link {
   color: var(--gold);
+}
+.consent__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 .consent--error span {
   color: #ffd2d2;

@@ -31,6 +31,7 @@ export function Modal({
   meta,
   office,
   narrow,
+  onClose,
   children,
 }: {
   label: string;
@@ -41,6 +42,8 @@ export function Modal({
   office?: boolean;
   /** Smaller dialog for short forms */
   narrow?: boolean;
+  /** A popup opened by page state, not a route: closing just calls this and the address doesn't change. */
+  onClose?: () => void;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -48,7 +51,7 @@ export function Modal({
   const box = useRef<HTMLDivElement>(null);
   // Opened from a link: go back to that page. Opened directly: show the list behind it.
   const fromLink = !!(location.state as { background?: unknown } | null)?.background;
-  const close = () => (fromLink ? navigate(-1) : navigate(detailFallback(location.pathname) ?? "/", { replace: true }));
+  const close = onClose ?? (() => (fromLink ? navigate(-1) : navigate(detailFallback(location.pathname) ?? "/", { replace: true })));
 
   useEffect(() => {
     const prev = document.body.style.overflow;

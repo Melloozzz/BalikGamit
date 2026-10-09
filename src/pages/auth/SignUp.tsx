@@ -4,6 +4,7 @@ import { AuthLayout } from "../../layouts/AuthLayout";
 import { PasswordField, TextField } from "../../components/ui";
 import { AuthError, useAuth } from "../../auth/AuthContext";
 import { fieldErrors, signUpSchema } from "../../lib/validation";
+import { PrivacyNoticeModal } from "../public/Privacy";
 
 export function SignUp() {
   const { signUp } = useAuth();
@@ -11,7 +12,8 @@ export function SignUp() {
   const [form, setForm] = useState({ fullName: "", email: "", password: "", confirm: "", consent: false });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const set =(k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
   async function submit(e: FormEvent) {
@@ -56,8 +58,19 @@ export function SignUp() {
         <label className={`consent ${errors.consent ? "consent--error" : ""}`}>
           <input type="checkbox" checked={form.consent} onChange={set("consent")} />
           <span>
-            I agree to the <Link to="/privacy" target="_blank">Privacy Notice</Link>, including that my report descriptions are shared
-            with an AI matching service.
+            I agree to the{" "}
+            <button
+              type="button"
+              className="consent__link"
+              onClick={(e) => {
+                // Inside the checkbox label: open the notice without ticking the box.
+                e.preventDefault();
+                setShowPrivacy(true);
+              }}
+            >
+              Privacy Notice
+            </button>
+            , including that my report descriptions are shared with an AI matching service.
           </span>
         </label>
         {errors.consent && (
@@ -72,6 +85,8 @@ export function SignUp() {
           Already registered? <Link to="/login">Sign In</Link>
         </p>
       </form>
+      {/* A popup, not a new tab, so the half-filled form is still here after reading it. */}
+      {showPrivacy && <PrivacyNoticeModal onClose={() => setShowPrivacy(false)} />}
     </AuthLayout>
   );
 }

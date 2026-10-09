@@ -502,6 +502,50 @@
 .legal__back {
   margin-top: 32px;
 }
+
+/* The Privacy Notice inside a popup (Sign Up): same content, dark text on white. */
+.legal-sheet {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.legal-sheet section + section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e3e5e9;
+}
+.legal-sheet h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  color: var(--heading);
+}
+.legal-sheet p + p,
+.legal-sheet ul + p,
+.legal-sheet table + p {
+  margin-top: 12px;
+}
+.legal-sheet ul {
+  margin: 8px 0 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 6px;
+}
+.legal-sheet a {
+  color: var(--navy-800);
+}
+.legal-sheet .legal__table {
+  font-size: 15px;
+}
+.legal-sheet .legal__table th,
+.legal-sheet .legal__table td {
+  border-bottom-color: #e3e5e9;
+}
+.legal-sheet .legal__table th {
+  color: var(--heading);
+}
+.legal-sheet__done {
+  align-self: flex-start;
+}
 @media (max-width: 700px) {
   .legal__table thead {
     display: none;
@@ -519,5 +563,12 @@
   .legal__table td:first-child {
     font-weight: 700;
     color: #fff;
+  }
+  /* Same stacked table inside the white Sign Up popup. */
+  .legal-sheet .legal__table tr {
+    border-bottom-color: #e3e5e9;
+  }
+  .legal-sheet .legal__table td:first-child {
+    color: var(--heading);
   }
 }

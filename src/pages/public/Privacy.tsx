@@ -1,3 +1,4 @@
+import { Modal } from "../../components/Modal";
 import { LegalPage, type LegalSection } from "./LegalPage";
 
 const sections: LegalSection[] = [
@@ -183,6 +184,29 @@ const sections: LegalSection[] = [
   },
 ];
 
+const EFFECTIVE = "[date]";
+
 export function Privacy() {
-  return <LegalPage title="Privacy Notice" effective="[date]" sections={sections} />;
+  return <LegalPage title="Privacy Notice" effective={EFFECTIVE} sections={sections} />;
+}
+
+/** The same notice as a popup, for the Sign Up consent box: the form stays put underneath. */
+export function PrivacyNoticeModal({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal label="Privacy Notice" eyebrow="RTU · INSTITUTE OF COMPUTER STUDIES · PASIG" title="Privacy Notice" meta={`Effective ${EFFECTIVE}`} onClose={onClose}>
+      <div className="legal-sheet">
+        {sections.map((s, i) => (
+          <section key={s.title}>
+            <h3>
+              {i + 1}. {s.title}
+            </h3>
+            {s.body}
+          </section>
+        ))}
+      </div>
+      <button type="button" className="btn btn--navy btn--lg legal-sheet__done" onClick={onClose}>
+        Back to sign up
+      </button>
+    </Modal>
+  );
 }
