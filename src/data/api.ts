@@ -69,8 +69,11 @@ function record(kind: Activity["kind"], text: string, subject?: string, href?: s
 const delay = <T,>(value: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(value), ms));
 const nowIso = () => new Date().toISOString();
 
-/** Strip admin-only fields before anything reaches a student page. */
-const toPublic = ({ privateDetails: _p, loggedBy: _l, shelfTag: _s, ...item }: FoundItem): FoundItem => item;
+/**
+ * Strip admin-only fields before anything reaches a student page: ownership evidence, who logged
+ * it, where it's shelved, the holding schedule, and the disposal record (staff name and note).
+ */
+export const toPublic = ({ privateDetails: _p, loggedBy: _l, shelfTag: _s, holdUntil: _h, disposal: _d, ...item }: FoundItem): FoundItem => item;
 
 // ---- people ------------------------------------------------------------------------
 export const getProfile = (id: string) => db.profiles.find((p) => p.id === id);
@@ -190,7 +193,11 @@ export const listAllLostReports = () =>
       .map((r) => ({ ...r, owner: getProfile(r.ownerId), flags: db.flaggedPosts.filter((f) => f.reportId === r.id).length })),
   );
 
+/** Office: any report, private details included. */
 export const getReport = (id: string) => delay(db.lostReports.find((r) => r.id === id) ?? null);
+
+/** Student: one of their own reports, or null (also for someone else's, so ownership isn't revealed). */
+export const getMyReport = (userId: string, id: string) => delay(db.lostReports.find((r) => r.id === id && r.ownerId === userId) ?? null);
 
 export async function createReport(
   userId: string,
@@ -207,9 +214,15 @@ export async function createReport(
   return delay(report);
 }
 
-export async function updateReport(id: string, patch: Partial<Pick<LostReport, "title" | "category" | "location" | "lostOn" | "description" | "privateDetails" | "photo">>) {
+/** A student edits their own report. In production RLS enforces the owner check too. */
+export async function updateReport(
+  userId: string,
+  id: string,
+  patch: Partial<Pick<LostReport, "title" | "category" | "location" | "lostOn" | "description" | "privateDetails" | "photo">>,
+) {
   const r = db.lostReports.find((x) => x.id === id);
-  if (!r) throw new Error("Report not found.");
+  // Same message for "missing" and "someone else's", so the check doesn't reveal which reports exist.
+  if (!r || r.ownerId !== userId) throw new Error("Report not found.");
   Object.assign(r, patch);
   // An edited hidden report goes back to the office for another look; it is not re-published automatically.
   if (r.status === "hidden") r.statusNote = "Edited. Waiting for the office to review it again.";
@@ -260,7 +273,12 @@ export const listClaimsForItem = (itemId: string) =>
 
 export const itemFor = (itemId: string) => db.foundItems.find((i) => i.id === itemId);
 
+/** Only items the office still holds, and that aren't already promised to someone, can be claimed. */
+export const isClaimable = (item: Pick<FoundItem, "status">) => item.status === "in_custody" || item.status === "claim_pending";
+
 export async function createClaim(userId: string, itemId: string, answers: string[], questions: string[]) {
+  const item = db.foundItems.find((i) => i.id === itemId);
+  if (!item || !isClaimable(item)) throw new Error("This item can't be claimed. The office no longer has it, or it's already being returned to its owner.");
   const existing = db.claims.filter((c) => c.itemId === itemId && c.claimantId === userId);
   if (existing.length >= 2) throw new Error("You've used both claim attempts for this item.");
   const next = Math.max(...db.claims.map((c) => Number(c.id.slice(3)))) + 1;
@@ -275,8 +293,7 @@ export async function createClaim(userId: string, itemId: string, answers: strin
     history: [{ status: "submitted", at }],
   };
   db.claims.unshift(claim);
-  const item = db.foundItems.find((i) => i.id === itemId);
-  if (item && item.status === "in_custody") item.status = "claim_pending";
+  if (item.status === "in_custody") item.status = "claim_pending";
   emit();
   return delay(claim);
 }
@@ -286,9 +303,19 @@ function setClaimStatus(claim: Claim, status: ClaimStatus) {
   claim.history.push({ status, at: nowIso() });
 }
 
+/** After a claim closes without approval: if nobody else is still claiming the item, it's back on the shelf. */
+function releaseIfNoOpenClaims(itemId: string) {
+  const item = db.foundItems.find((i) => i.id === itemId);
+  const stillClaimed = db.claims.some((c) => c.itemId === itemId && (c.status === "pending" || c.status === "needs_info"));
+  if (item?.status === "claim_pending" && !stillClaimed) item.status = "in_custody";
+}
+
 export async function withdrawClaim(id: string) {
   const c = db.claims.find((x) => x.id === id);
-  if (c) setClaimStatus(c, "withdrawn");
+  if (c) {
+    setClaimStatus(c, "withdrawn");
+    releaseIfNoOpenClaims(c.itemId);
+  }
   emit();
   return delay(c);
 }
@@ -319,6 +346,7 @@ export async function decideClaim(id: string, decision: "approve" | "reject" | "
   } else if (decision === "reject") {
     c.decisionReason = reason;
     setClaimStatus(c, "rejected");
+    releaseIfNoOpenClaims(c.itemId);
   } else {
     setClaimStatus(c, "needs_info");
     if (reason) db.messages.push({ id: crypto.randomUUID(), claimId: id, from: "office", body: reason, at: nowIso() });
@@ -439,10 +467,14 @@ export function profileStats(user: Profile) {
 
 // ---- moderation ----------------------------------------------------------------------
 export const listFlaggedPosts = () => delay([...db.flaggedPosts]);
+/**
+ * Hide or restore a flagged lost report. Several students can flag the same report, so every
+ * flag on that report follows; otherwise the others would still say "Visible" after a hide.
+ */
 export async function setFlaggedVisible(id: string, visible: boolean) {
   const f = db.flaggedPosts.find((x: FlaggedPost) => x.id === id);
   if (f) {
-    f.visible = visible;
+    for (const same of db.flaggedPosts) if (same.reportId === f.reportId) same.visible = visible;
     const r = db.lostReports.find((x) => x.id === f.reportId);
     if (r) {
       r.status = visible ? "active" : "hidden";
@@ -520,7 +552,8 @@ export async function renamePlace(k: PlaceKind, from: string, to: string) {
   const n = to.trim();
   const { live, archived } = lists(k);
   if (!n) throw new Error("The name can't be empty.");
-  if (n !== from && [...live, ...archived].some((x) => x.toLowerCase() === n.toLowerCase())) throw new Error(`That ${label(k)} already exists.`);
+  // Skip the entry being renamed, so changing only its capitals ("School supplies" → "School Supplies") works.
+  if ([...live, ...archived].some((x) => x !== from && x.toLowerCase() === n.toLowerCase())) throw new Error(`That ${label(k)} already exists.`);
   for (const arr of [live, archived]) {
     const at = arr.indexOf(from);
     if (at !== -1) arr[at] = n;
@@ -563,7 +596,14 @@ export interface OfficeReport {
 /** Counts for the Reports page. `days` = how far back; omit for all time. In production this is one SQL view. */
 export function officeReport(days?: number): OfficeReport {
   const to = todayIso();
-  const earliest = db.foundItems.reduce((m, i) => (i.foundOn < m ? i.foundOn : m), to);
+  // "All time" starts at the oldest record of any kind, so older lost reports and decisions count too.
+  const manila = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  const dates = [
+    ...db.foundItems.map((i) => i.foundOn),
+    ...db.lostReports.map((r) => r.lostOn),
+    ...db.claims.flatMap((c) => c.history.map((h) => manila(h.at))),
+  ];
+  const earliest = dates.reduce((m, d) => (d < m ? d : m), to);
   const from = days ? new Date(isoDay(to) - (days - 1) * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : earliest;
   const inRange = (d?: string) => !!d && d.slice(0, 10) >= from && d.slice(0, 10) <= to;
   const logged = db.foundItems.filter((i) => inRange(i.foundOn));
@@ -633,7 +673,8 @@ export function dashboardCounts() {
     unclaimed: db.foundItems.filter(isUnclaimed).length,
     // Same rule as the Claim Queue "Needs action" tab: waiting on a decision, a reply, or a release.
     claimsToAct: db.claims.filter((c) => c.status === "pending" || c.status === "needs_info" || c.status === "approved").length,
-    flagged: db.flaggedPosts.filter((f) => f.visible).length,
+    // Reports, not flags: two students flagging one post is still one post to review.
+    flagged: new Set(db.flaggedPosts.filter((f) => f.visible).map((f) => f.reportId)).size,
   };
 }
 

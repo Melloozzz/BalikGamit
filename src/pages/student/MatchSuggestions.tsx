@@ -1,12 +1,16 @@
 import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { BackLink, EmptyState, ItemPhoto, LikelihoodBadge, Loading } from "../../components/ui";
-import { getMatches, getReport } from "../../data/api";
+import { getMatches, getMyReport } from "../../data/api";
+import { useAuth } from "../../auth/AuthContext";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 export function MatchSuggestions() {
-  const { reportId = "" } = useParams();  const report = useLoad(() => getReport(reportId), [reportId]);
+  const { reportId = "" } = useParams();
+  const { user } = useAuth();
+  // Only the report's owner sees its matches; anyone else gets "couldn't find".
+  const report = useLoad(() => getMyReport(user!.id, reportId), [user?.id, reportId]);
   const matches = useLoad(() => getMatches(reportId), [reportId]);
   if (report === undefined || matches === undefined) return <Loading />;
   if (report === null)

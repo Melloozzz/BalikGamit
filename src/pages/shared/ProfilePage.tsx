@@ -3,8 +3,7 @@ import { Icon } from "../../components/Icon";
 import { initials } from "../../components/ProfileMenu";
 import { BackButton, PageHead } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { profileStats, useDataVersion } from "../../data/api";
-import { OFFICE } from "../../data/mock";
+import { OFFICE, profileStats, useDataVersion } from "../../data/api";
 import { longDate } from "../../lib/format";
 
 const roleLabel = { student: "Student", admin: "Admin", super_admin: "Super admin" } as const;

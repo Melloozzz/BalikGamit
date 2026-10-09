@@ -60,10 +60,19 @@ app.get("/reports/:id/matches", async (c) => {
 
 /** Queue AI extraction + matching for a new or edited report. The cron retries failed jobs. */
 app.post("/reports/:id/match", async (c) => {
+  // Only the report's owner or office staff can queue it; each job spends Groq quota.
+  const id = c.req.param("id");
+  const userId = c.get("userId");
+  const owner = await rest<{ owner_id: string }[]>(c.env, `lost_reports?id=eq.${encodeURIComponent(id)}&select=owner_id`);
+  if (!owner[0]) return c.json({ error: "not_found" }, 404);
+  if (owner[0].owner_id !== userId) {
+    const me = await rest<{ role: string }[]>(c.env, `profiles?id=eq.${encodeURIComponent(userId)}&select=role`);
+    if (me[0]?.role !== "admin" && me[0]?.role !== "super_admin") return c.json({ error: "not_found" }, 404);
+  }
   await rest(c.env, "ai_jobs", {
     method: "POST",
     headers: { prefer: "return=minimal" },
-    body: JSON.stringify({ kind: "match_report", ref_id: c.req.param("id"), requested_by: c.get("userId") }),
+    body: JSON.stringify({ kind: "match_report", ref_id: id, requested_by: userId }),
   });
   return c.json({ queued: true }, 202);
 });

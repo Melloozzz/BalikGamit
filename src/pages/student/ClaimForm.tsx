@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Alert, BackButton, CategoryPill, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
-import { createClaim, getFoundItem } from "../../data/api";
+import { Alert, BackButton, CategoryPill, EmptyState, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
+import { createClaim, getFoundItem, isClaimable } from "../../data/api";
 import { useAuth } from "../../auth/AuthContext";
 import { claimSchema, fieldErrors } from "../../lib/validation";
 import { useLoad } from "../../lib/useLoad";
@@ -22,7 +22,14 @@ export function ClaimForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
-  if (!item) return <Loading />;
+  if (item === undefined) return <Loading />;
+  if (!item || !isClaimable(item))
+    return (
+      <div className="container stack-lg">
+        <BackButton fallback="/items" />
+        <EmptyState title="This item can't be claimed.">The office no longer has it, or it's already being returned to its owner.</EmptyState>
+      </div>
+    );
 
   async function submit(e: FormEvent) {
     e.preventDefault();

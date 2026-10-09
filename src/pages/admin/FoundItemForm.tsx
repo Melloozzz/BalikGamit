@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { Icon } from "../../components/Icon";
-import { SelectField, TextAreaField, TextField } from "../../components/ui";
-import { CATEGORIES, LOCATIONS } from "../../data/mock";
+import { Alert, SelectField, TextAreaField, TextField } from "../../components/ui";
+import { CATEGORIES, LOCATIONS, withCurrent } from "../../data/api";
 import { fieldErrors, foundItemSchema } from "../../lib/validation";
 import { todayIso } from "../../lib/format";
 
@@ -35,8 +35,6 @@ export function FoundItemForm({
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof EMPTY_ITEM) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
-  // An archived category or location stays selectable on records that already use it.
-  const withCurrent = (list: string[], v: string) => (v && !list.includes(v) ? [...list, v] : list);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -47,6 +45,8 @@ export function FoundItemForm({
     try {
       await onSubmit({ ...form, ...parsed.data } as ItemFormValues);
       if (initial === EMPTY_ITEM) setForm(EMPTY_ITEM);
+    } catch (err) {
+      setErrors({ _: (err as Error).message });
     } finally {
       setBusy(false);
     }
@@ -54,6 +54,7 @@ export function FoundItemForm({
 
   return (
     <form className="form-card form-card--white form-card--narrow" onSubmit={submit} noValidate>
+      {errors._ && <Alert>{errors._}</Alert>}
       <TextField label="Item name" placeholder="Ex. Black leather wallet" value={form.title} onChange={set("title")} error={errors.title} maxLength={60} />
       <div className="form-grid-2">
         <SelectField label="Category" placeholder="Choose a category" options={withCurrent(CATEGORIES, form.category)} value={form.category} onChange={set("category")} error={errors.category} />

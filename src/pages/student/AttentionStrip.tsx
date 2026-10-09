@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 import { useAuth } from "../../auth/AuthContext";
 import { itemFor, listMyClaims, listMyReports } from "../../data/api";
-import { matchesByReport } from "../../data/mock";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
@@ -24,7 +23,8 @@ export function AttentionStrip() {
       cards.push({ key: c.id, to: `/claims/${c.id}`, tone: "green", eyebrow: "READY FOR PICKUP", title: item.title, text: c.pickupBy ? `Pick up by ${longDate(c.pickupBy)}` : "Bring your RTU ID" });
   }
   for (const r of reports) {
-    const n = r.status === "active" ? (matchesByReport[r.id] ?? []).length : 0;
+    // Same count My reports shows.
+    const n = r.status === "active" ? r.matchCount : 0;
     if (n > 0) cards.push({ key: r.id, to: `/reports/${r.id}/matches`, tone: "blue", eyebrow: `${n} POSSIBLE MATCH${n === 1 ? "" : "ES"}`, title: r.title, text: `For your report ${r.id}` });
   }
   const order = { amber: 0, blue: 1, green: 2 };

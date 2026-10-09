@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Icon } from "../../components/Icon";
 import { ModalLink } from "../../components/Modal";
 import { Alert, BackButton, EmptyState, ItemBadge, ItemPhoto, Loading, PageHead } from "../../components/ui";
-import { daysHeld, disposeItem, extendHold, holdEnds, listDisposed, listUnclaimed } from "../../data/api";
-import { OFFICE } from "../../data/mock";
+import { OFFICE, daysHeld, disposeItem, extendHold, holdEnds, listDisposed, listUnclaimed } from "../../data/api";
 import type { FoundItem } from "../../data/types";
 import { longDate, shortDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
@@ -95,8 +94,22 @@ function UnclaimedCard({ item, onDone }: { item: FoundItem; onDone: (m: string) 
 
   async function confirm() {
     if (note.trim().length < 5) return setError(mode === "donated" ? "Say where it was donated." : "Say why it was disposed of.");
-    await disposeItem(item.id, mode!, note.trim());
-    onDone(`${item.title} (${item.id}) was marked as ${mode}.`);
+    try {
+      await disposeItem(item.id, mode!, note.trim());
+      onDone(`${item.title} (${item.id}) was marked as ${mode}.`);
+    } catch (e) {
+      // Ex. a student filed a claim after this page loaded.
+      setError((e as Error).message);
+    }
+  }
+
+  async function keepLonger() {
+    try {
+      await extendHold(item.id, EXTEND_DAYS);
+      onDone(`${item.title} will be kept ${EXTEND_DAYS} more days.`);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   return (
@@ -124,18 +137,13 @@ function UnclaimedCard({ item, onDone }: { item: FoundItem; onDone: (m: string) 
             <button className="btn btn--outline-danger btn--sm" onClick={() => setMode("disposed")}>
               <Icon name="trash" size={16} /> Dispose
             </button>
-            <button
-              className="btn btn--outline btn--sm"
-              onClick={async () => {
-                await extendHold(item.id, EXTEND_DAYS);
-                onDone(`${item.title} will be kept ${EXTEND_DAYS} more days.`);
-              }}
-            >
+            <button className="btn btn--outline btn--sm" onClick={keepLonger}>
               <Icon name="clock" size={16} /> Keep {EXTEND_DAYS} more days
             </button>
           </div>
         )}
       </div>
+      {!mode && error && <Alert>{error}</Alert>}
       {mode && (
         <div className="unclaimed__confirm">
           <label className="field">

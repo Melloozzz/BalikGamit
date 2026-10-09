@@ -31,6 +31,11 @@ export function FlaggedPosts() {
                 <p>
                   <b>Flag reason:</b> {p.reason}
                 </p>
+                {p.note && (
+                  <p>
+                    <b>Student’s note:</b> “{p.note}”
+                  </p>
+                )}
               </div>
               <button className="btn btn--outline" onClick={() => setFlaggedVisible(p.id, !p.visible)}>
                 <Icon name={p.visible ? "eyeOff" : "eye"} size={20} /> {p.visible ? "Hide" : "Restore"}

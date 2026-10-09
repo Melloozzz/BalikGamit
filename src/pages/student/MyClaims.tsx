@@ -1,8 +1,7 @@
 import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 import { BackButton, ClaimBadge, EmptyState, ItemPhoto, Loading, PageHead } from "../../components/ui";
-import { itemFor, listMyClaims } from "../../data/api";
-import { OFFICE } from "../../data/mock";
+import { OFFICE, itemFor, listMyClaims } from "../../data/api";
 import type { Claim } from "../../data/types";
 import { useAuth } from "../../auth/AuthContext";
 import { longDate } from "../../lib/format";

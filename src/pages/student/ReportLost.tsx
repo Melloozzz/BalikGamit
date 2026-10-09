@@ -1,9 +1,8 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Icon } from "../../components/Icon";
-import { BackButton, Alert, PageHead, SelectField, TextAreaField, TextField } from "../../components/ui";
-import { createReport, getReport, updateReport } from "../../data/api";
-import { CATEGORIES, LOCATIONS } from "../../data/mock";
+import { BackButton, Alert, EmptyState, Loading, PageHead, SelectField, TextAreaField, TextField } from "../../components/ui";
+import { CATEGORIES, LOCATIONS, createReport, getMyReport, updateReport, withCurrent } from "../../data/api";
 import { useAuth } from "../../auth/AuthContext";
 import { fieldErrors, lostReportSchema } from "../../lib/validation";
 import { todayIso } from "../../lib/format";
@@ -21,12 +20,14 @@ export function ReportLost() {
   const [photo, setPhoto] = useState<{ url: string; name: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  // Editing: null while loading, false if the report is missing or belongs to someone else.
+  const [editable, setEditable] = useState<boolean | null>(editId ? null : true);
 
   useEffect(() => {
     if (!editId) return;
-    getReport(editId).then((r) => {
-      if (r && r.ownerId === user?.id)
-        setForm({ title: r.title, category: r.category, location: r.location, lostOn: r.lostOn, description: r.description, privateDetails: r.privateDetails ?? "" });
+    getMyReport(user!.id, editId).then((r) => {
+      if (r) setForm({ title: r.title, category: r.category, location: r.location, lostOn: r.lostOn, description: r.description, privateDetails: r.privateDetails ?? "" });
+      setEditable(!!r);
     });
   }, [editId, user?.id]);
 
@@ -50,7 +51,12 @@ export function ReportLost() {
     setErrors({});
     setBusy(true);
     if (editId) {
-      await updateReport(editId, { ...parsed.data, ...(photo ? { photo: photo.url } : {}) });
+      try {
+        await updateReport(user!.id, editId, { ...parsed.data, ...(photo ? { photo: photo.url } : {}) });
+      } catch (err) {
+        setBusy(false);
+        return setErrors({ _: (err as Error).message });
+      }
       // Opened from My reports: step back to it so its Back button doesn't reopen this form.
       if (fromReports) navigate(-1);
       else navigate("/reports", { replace: true });
@@ -60,6 +66,15 @@ export function ReportLost() {
     }
   }
 
+  if (editable === null) return <Loading />;
+  if (!editable)
+    return (
+      <div className="container stack-lg">
+        <BackButton fallback="/reports" />
+        <EmptyState title="We couldn't find that report.">You can only edit reports you posted. Your reports are under My reports.</EmptyState>
+      </div>
+    );
+
   return (
     <div className="container stack-lg">
       <BackButton fallback="/home" />
@@ -68,11 +83,12 @@ export function ReportLost() {
         lead="Share enough public detail for matching, but keep unique identifying details private."
       />
       <form className="form-card" onSubmit={submit} noValidate>
+        {errors._ && <Alert>{errors._}</Alert>}
         {Object.keys(errors).length > 1 && <Alert>Check the highlighted fields.</Alert>}
         <TextField label="Item name" placeholder="Ex. Navy blue umbrella" value={form.title} onChange={set("title")} error={errors.title} maxLength={60} />
         <div className="form-grid-3">
-          <SelectField label="Category" placeholder="Choose a category" options={CATEGORIES} value={form.category} onChange={set("category")} error={errors.category} />
-          <SelectField label="Last-seen location" placeholder="Choose a location" options={LOCATIONS} value={form.location} onChange={set("location")} error={errors.location} />
+          <SelectField label="Category" placeholder="Choose a category" options={withCurrent(CATEGORIES, form.category)} value={form.category} onChange={set("category")} error={errors.category} />
+          <SelectField label="Last-seen location" placeholder="Choose a location" options={withCurrent(LOCATIONS, form.location)} value={form.location} onChange={set("location")} error={errors.location} />
           <TextField label="Date last seen" type="date" max={todayIso()} value={form.lostOn} onChange={set("lostOn")} error={errors.lostOn} />
         </div>
         <TextAreaField

@@ -3,9 +3,8 @@ import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Modal } from "../../components/Modal";
 import { Alert, CategoryPill, ItemPhoto, Loading } from "../../components/ui";
-import { flagReport, getFoundItem, getPublicLostReport, listMyClaims } from "../../data/api";
+import { OFFICE, flagReport, getFoundItem, getPublicLostReport, isClaimable, listMyClaims } from "../../data/api";
 import type { FlagReason } from "../../data/types";
-import { OFFICE } from "../../data/mock";
 import { useAuth } from "../../auth/AuthContext";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
@@ -37,14 +36,17 @@ export function FoundItemModal() {
       </Modal>
     );
   const open = myClaims?.find((c) => c.itemId === item.id && !["rejected", "withdrawn", "expired"].includes(c.status));
-  const unavailable = item.status === "ready_for_pickup" || item.status === "returned";
+  const gone = item.status === "donated" || item.status === "disposed";
   return (
     <Modal label={`Found item ${item.title}`} eyebrow={`FOUND ITEM · ${item.id}`} title={item.title}>
       <div className="modal-detail">
         <ItemPhoto src={item.photo} alt={item.title} className="modal-detail__photo" />
         <div className="modal-detail__info">
           <CategoryPill>{item.category}</CategoryPill>
-          <p className="modal-detail__desc">{item.description} It is secured by the campus Office while ownership is verified.</p>
+          <p className="modal-detail__desc">
+            {item.description}
+            {!gone && " It is secured by the campus Office while ownership is verified."}
+          </p>
           <Facts
             rows={[
               { icon: "pin", label: "FOUND AT", value: item.location },
@@ -54,18 +56,22 @@ export function FoundItemModal() {
         </div>
       </div>
       <div className="modal-detail__foot">
-        <div className="think-box">
-          <p className="think-box__title">
-            <Icon name="shield" size={18} /> Think it’s yours?
-          </p>
-          <p>Answer a few questions only the owner would know. The office checks them against details recorded at intake.</p>
-        </div>
+        {!gone && (
+          <div className="think-box">
+            <p className="think-box__title">
+              <Icon name="shield" size={18} /> Think it’s yours?
+            </p>
+            <p>Answer a few questions only the owner would know. The office checks them against details recorded at intake.</p>
+          </div>
+        )}
         <div className="modal-detail__cta">
           {open ? (
             <Link to={`/claims/${open.id}`} className="btn btn--navy btn--block btn--lg">
               View your claim ({open.id})
             </Link>
-          ) : unavailable ? (
+          ) : gone ? (
+            <p className="muted">The office no longer has this item. It was {item.status} after the holding period.</p>
+          ) : !isClaimable(item) ? (
             <p className="muted">This item is already being returned to its owner.</p>
           ) : (
             <Link to={`/items/${item.id}/claim`} className="btn btn--navy btn--block btn--lg">

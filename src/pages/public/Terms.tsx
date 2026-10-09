@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { LegalPage, type LegalSection } from "./LegalPage";
-import { OFFICE } from "../../data/mock";
+import { OFFICE } from "../../data/api";
 
 const sections: LegalSection[] = [
   {
