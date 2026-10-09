@@ -1,30 +1,17 @@
 import { Link, useSearchParams } from "react-router";
-import { Icon, type IconName } from "../../components/Icon";
+import { Icon } from "../../components/Icon";
+import { notifLook as look } from "../../components/NotificationMenu";
 import { BackButton, ClaimBadge, EmptyState, ItemPhoto, Loading, PageHead } from "../../components/ui";
 import { listNotifications, listThreads, markNotificationsRead } from "../../data/api";
-import type { Notification } from "../../data/types";
 import { useAuth } from "../../auth/AuthContext";
 import { shortDateTime } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
-const look: Record<Notification["kind"], { icon: IconName; tone: string }> = {
-  question: { icon: "message", tone: "amber" },
-  matches: { icon: "search", tone: "blue" },
-  approved: { icon: "check", tone: "green" },
-  expiring: { icon: "clock", tone: "red" },
-  hidden: { icon: "eyeOff", tone: "gray" },
-  rejected: { icon: "x", tone: "red" },
-  new_claim: { icon: "shield", tone: "blue" },
-  reply: { icon: "message", tone: "amber" },
-  flagged: { icon: "flag", tone: "red" },
-  pickup_due: { icon: "clock", tone: "amber" },
-};
-
 /** The bell page: notifications and claim messages in one place, for students and office staff. */
-export function Inbox({ who }: { who: "student" | "office" }) {
+export function Inbox({ who, only }: { who: "student" | "office"; only?: "messages" }) {
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "messages" ? "messages" : "notifications";
+  const tab = only === "messages" || params.get("tab") === "messages" ? "messages" : "notifications";
   const office = who === "office";
   const notes = useLoad(() => listNotifications(who), [who]);
   const threads = useLoad(() => listThreads(office ? "office" : "owner", user?.id), [who, user?.id]);
@@ -36,12 +23,20 @@ export function Inbox({ who }: { who: "student" | "office" }) {
   const setTab = (t: string) => setParams(t === "messages" ? { tab: "messages" } : {}, { replace: true });
 
   return (
-    <div className="container container--mid stack-lg">
+    <div className={`container container--mid stack-lg inbox ${only ? "inbox--messages" : ""}`}>
       <BackButton fallback={office ? "/admin" : "/home"} />
       <PageHead
         eyebrow={office ? "OFFICE INBOX" : undefined}
-        title="Notifications"
-        lead={office ? "New claims, replies from claimants, and items that need attention." : "Updates on your reports and claims, and messages from the office."}
+        title={only ? "Messages" : "Notifications"}
+        lead={
+          only
+            ? office
+              ? "Conversations with claimants, one per claim."
+              : "Conversations with the office about your claims."
+            : office
+              ? "New claims, replies from claimants, and items that need attention."
+              : "Updates on your reports and claims, and messages from the office."
+        }
         actions={
           tab === "notifications" &&
           unread.length > 0 && (
@@ -51,6 +46,7 @@ export function Inbox({ who }: { who: "student" | "office" }) {
           )
         }
       />
+      {!only && (
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === "notifications"} className={`tab ${office ? "tab--blue" : ""} ${tab === "notifications" ? "is-active" : ""}`} onClick={() => setTab("notifications")}>
           <Icon name="bell" size={16} /> Notifications{unread.length > 0 && <span className="tab__count">{unread.length}</span>}
@@ -59,6 +55,7 @@ export function Inbox({ who }: { who: "student" | "office" }) {
           <Icon name="message" size={16} /> Messages{waiting.length > 0 && <span className="tab__count">{waiting.length}</span>}
         </button>
       </div>
+      )}
 
       {tab === "notifications" ? (
         notes.length === 0 ? (
@@ -97,19 +94,17 @@ export function Inbox({ who }: { who: "student" | "office" }) {
                   <Link to={claimHref(t.claim.id)} className={`thread-row ${t.awaitingYou ? "thread-row--waiting" : ""}`}>
                     <ItemPhoto src={t.photo} alt="" className="thread-row__thumb" />
                     <span className="thread-row__body">
-                      <span className="thread-row__top">
-                        <strong>{t.itemTitle}</strong>
-                        <small>{shortDateTime(t.last.at)}</small>
-                      </span>
+                      <strong className="thread-row__title">{t.itemTitle}</strong>
+                      <small className="thread-row__date">{shortDateTime(t.last.at)}</small>
                       <span className="thread-row__meta">
                         Claim {t.claim.id}
                         {office && t.claimantName ? ` · ${t.claimantName}` : ""} <ClaimBadge status={t.claim.status} />
                       </span>
+                      {t.awaitingYou && <span className="thread-row__flag">Reply needed</span>}
                       <span className="thread-row__preview">
                         <b>{mine ? "You" : office ? "Owner" : "Office"}:</b> {t.last.body}
                       </span>
                     </span>
-                    {t.awaitingYou && <span className="thread-row__flag">Reply needed</span>}
                     <Icon name="chevronRight" size={20} />
                   </Link>
                 </li>

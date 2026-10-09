@@ -194,6 +194,41 @@ const paths = {
       <path d="M11 12l9-9M16 7l3 3M14 9l2 2" />
     </>
   ),
+  edit: <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16zM13.5 6.5l4 4" />,
+  gift: (
+    <>
+      <rect x="3" y="8" width="18" height="5" rx="1" />
+      <path d="M5 13v8h14v-8M12 8v13M12 8S10.5 3 8 3.5 7 8 12 8zM12 8s1.5-5 4-4.5S17 8 12 8z" />
+    </>
+  ),
+  archive: (
+    <>
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" />
+    </>
+  ),
+  restore: <path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5" />,
+  download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
+  chart: <path d="M4 20V4M4 20h16M8 16v-4M12 16V8M16 16v-6" />,
+  history: (
+    <>
+      <path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5" />
+      <path d="M12 8v4l3 2" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z" />
+      <circle cx="8" cy="8" r="1.5" />
+    </>
+  ),
+  inbox: (
+    <>
+      <path d="M3 13l2.5-8h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+      <path d="M3 13h5l1 3h6l1-3h5" />
+    </>
+  ),
+  list: <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />,
 } as const;
 
 export type IconName = keyof typeof paths;

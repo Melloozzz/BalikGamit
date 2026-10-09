@@ -1,6 +1,7 @@
 // Sample data for demo mode (no Supabase keys set). Names, dates and IDs match the
 // Figma screens so the app and the design tell the same story.
 import type {
+  Activity,
   Claim,
   FlaggedPost,
   FoundItem,
@@ -48,7 +49,13 @@ export const OFFICE = {
   name: "[Office name, Building]",
   pickupDays: 5,
   reportExpiryDays: 90,
+  /** [Confirm with the office] How long unclaimed found items are kept before donation or disposal. */
+  holdingDays: 60,
 };
+
+/** Archived names stay on old records but no longer appear in the dropdowns. */
+export const ARCHIVED_CATEGORIES: string[] = ["Calculators"];
+export const ARCHIVED_LOCATIONS: string[] = ["Old canteen annex"];
 
 export const profiles: Profile[] = [
   { id: "u-angela", fullName: "Angela Reyes", email: "angela.reyes@rtu.edu.ph", role: "student", active: true, joinedOn: "2026-09-14" },
@@ -153,7 +160,82 @@ export const foundItems: FoundItem[] = [
     foundOn: "2026-09-10",
     description: "Two brass keys on a red rubber keychain.",
     status: "returned",
+    shelfTag: "B-01",
+    loggedBy: "Jose Ramirez",
+    returnedOn: "2026-09-25",
   },
+  // Past the 60-day holding period with no open claim (Unclaimed items page).
+  {
+    id: "BG-0987",
+    title: "Gray zip-up hoodie",
+    category: "Clothing",
+    location: "Gym",
+    locationDetail: "Bleachers, left side",
+    foundOn: "2026-07-21",
+    description: "Gray hoodie, size M, with a small paint stain on the sleeve.",
+    status: "in_custody",
+    shelfTag: "D-02",
+    privateDetails: "Name written inside the collar in marker, partly faded.",
+    loggedBy: "Jose Ramirez",
+  },
+  {
+    id: "BG-0991",
+    title: "Black steel tumbler",
+    category: "Tumblers & Containers",
+    location: "Library",
+    foundOn: "2026-07-28",
+    description: "Black 750 ml tumbler with a bamboo lid.",
+    status: "in_custody",
+    shelfTag: "D-05",
+    loggedBy: "Maria Santos",
+  },
+  {
+    id: "BG-1003",
+    title: "Blue spiral notebook",
+    category: "School supplies",
+    location: "Room 304",
+    foundOn: "2026-08-04",
+    description: "Blue A5 notebook with lecture notes for a programming class.",
+    status: "in_custody",
+    shelfTag: "D-07",
+    privateDetails: "First page has a class schedule with section ICS-02.",
+    loggedBy: "Maria Santos",
+  },
+  // Older history, so the Reports page and the office inventory have real numbers to show.
+  ...([
+    ["BG-0961", "Black umbrella", "Umbrella", "Main gate", "2026-07-09", "returned", "2026-07-14"],
+    ["BG-0964", "RTU ID with lanyard", "ID & Cards", "Library", "2026-07-11", "returned", "2026-07-11"],
+    ["BG-0968", "Pink coin purse", "Wallet", "Canteen", "2026-07-15", "returned", "2026-07-22"],
+    ["BG-0970", "Earphones in a pouch", "Electronics", "MAE Building", "2026-07-18", "returned", "2026-07-30"],
+    ["BG-0974", "Water bottle, green", "Tumblers & Containers", "Gym", "2026-07-23", "donated", ""],
+    ["BG-0977", "Black backpack", "Bags", "RND Building", "2026-07-25", "returned", "2026-07-27"],
+    ["BG-0979", "Umbrella, floral", "Umbrella", "Canteen", "2026-07-29", "disposed", ""],
+    ["BG-0982", "Library card", "ID & Cards", "Library", "2026-08-03", "returned", "2026-08-04"],
+    ["BG-0985", "Silver bracelet", "Jewelry & Accessories", "Room 304", "2026-08-06", "returned", "2026-08-19"],
+    ["BG-0993", "Brown wallet", "Wallet", "MAE Building", "2026-08-12", "returned", "2026-08-14"],
+    ["BG-0996", "Power bank", "Electronics", "Library", "2026-08-18", "returned", "2026-08-26"],
+    ["BG-0999", "RTU ID, no lanyard", "ID & Cards", "Canteen", "2026-08-21", "returned", "2026-08-22"],
+    ["BG-1006", "Car keys with remote", "Keys", "Main gate", "2026-08-28", "returned", "2026-08-29"],
+    ["BG-1009", "Folding umbrella, black", "Umbrella", "MAE Building", "2026-09-03", "returned", "2026-09-10"],
+    ["BG-1014", "Denim jacket", "Clothing", "Gym", "2026-09-08", "returned", "2026-09-19"],
+    ["BG-1019", "Student ID, BSIT", "ID & Cards", "RND Building", "2026-09-12", "returned", "2026-09-12"],
+    ["BG-1022", "Wireless mouse", "Electronics", "Room 304", "2026-09-14", "returned", "2026-09-29"],
+  ] as const).map(([id, title, category, location, foundOn, status, returnedOn]): FoundItem => ({
+    id,
+    title,
+    category,
+    location,
+    foundOn,
+    description: title + ".",
+    status,
+    loggedBy: Number(id.slice(3)) % 2 ? "Maria Santos" : "Jose Ramirez",
+    ...(returnedOn ? { returnedOn } : {}),
+    ...(status === "donated"
+      ? { disposal: { method: "donated" as const, note: "Given to the RTU Student Council drive.", by: "Maria Santos", at: "2026-09-30T10:00:00+08:00" } }
+      : status === "disposed"
+        ? { disposal: { method: "disposed" as const, note: "Broken frame and torn canopy.", by: "Jose Ramirez", at: "2026-09-30T10:20:00+08:00" } }
+        : {}),
+  })),
 ];
 
 export const lostReports: LostReport[] = [
@@ -402,6 +484,9 @@ export const adminNotifications: Notification[] = [
   { id: "a3", kind: "flagged", title: "A lost report was flagged", detail: "White wireless earbuds · contains a phone number", at: "2026-10-03T08:50:00+08:00", read: false, href: "/admin/flagged" },
   { id: "a4", kind: "pickup_due", title: "Pickup deadline tomorrow", detail: "Keys with blue tag · Claim CL-491 · Mika Dela Cruz", at: "2026-10-06T07:00:00+08:00", read: true, href: "/admin/claims/CL-491/release" },
   { id: "a5", kind: "new_claim", title: "New claim filed", detail: "Black leather wallet · Claim CL-512", at: "2026-10-02T09:14:00+08:00", read: true, href: "/admin/claims/CL-512" },
+  { id: "a6", kind: "reply", title: "A claimant replied", detail: "Navy folding umbrella · Claim CL-497", at: "2026-09-29T13:22:00+08:00", read: true, href: "/admin/claims/CL-497" },
+  { id: "a7", kind: "flagged", title: "A lost report was flagged", detail: "Blue tumbler · possible spam", at: "2026-09-26T10:05:00+08:00", read: true, href: "/admin/flagged" },
+  { id: "a8", kind: "new_claim", title: "New claim filed", detail: "Scientific calculator · Claim CL-488", at: "2026-09-19T16:40:00+08:00", read: true, href: "/admin/claims/CL-488" },
 ];
 
 export const notifications: Notification[] = [
@@ -450,6 +535,33 @@ export const notifications: Notification[] = [
     read: true,
     href: "/reports",
   },
+  {
+    id: "n6",
+    kind: "matches",
+    title: "1 possible match for your report",
+    detail: "Brown coin purse · tap to review it",
+    at: "2026-09-27T10:12:00+08:00",
+    read: true,
+    href: "/reports",
+  },
+  {
+    id: "n7",
+    kind: "rejected",
+    title: "A claim was not approved",
+    detail: "Scientific calculator · the details didn't match the item",
+    at: "2026-09-22T09:30:00+08:00",
+    read: true,
+    href: "/claims",
+  },
+  {
+    id: "n8",
+    kind: "approved",
+    title: "Your claim was approved",
+    detail: "House keys with red keychain · picked up September 25, 2026",
+    at: "2026-09-21T15:05:00+08:00",
+    read: true,
+    href: "/claims",
+  },
 ];
 
 export type MatchSeed = Omit<Match, "item"> & { itemId: string };
@@ -482,6 +594,7 @@ export const matchesByReport: Record<string, MatchSeed[]> = {
 export const flaggedPosts: FlaggedPost[] = [
   {
     id: "FP-31",
+    reportedAt: "2026-10-03T08:50:00+08:00",
     reportId: "LR-221",
     title: "White wireless earbuds",
     reporterLabel: "a•••@rtu.edu.ph",
@@ -490,6 +603,7 @@ export const flaggedPosts: FlaggedPost[] = [
   },
   {
     id: "FP-32",
+    reportedAt: "2026-10-01T17:20:00+08:00",
     reportId: "LR-210",
     title: "Silver ring",
     reporterLabel: "p•••@rtu.edu.ph",
@@ -498,10 +612,29 @@ export const flaggedPosts: FlaggedPost[] = [
   },
   {
     id: "FP-33",
+    reportedAt: "2026-09-29T12:05:00+08:00",
     reportId: "LR-205",
     title: "Wireless earbuds",
     reporterLabel: "m•••@rtu.edu.ph",
     reason: "Description may include a social media handle",
     visible: true,
   },
+];
+
+/** Office audit trail, newest first. In production a database trigger writes these rows; nobody can edit them. */
+export const activity: Activity[] = [
+  { id: "ac14", at: "2026-10-06T08:15:00+08:00", actor: "Jose Ramirez", kind: "asked", text: "replied on claim CL-497", subject: "Navy folding umbrella", href: "/admin/claims/CL-497" },
+  { id: "ac13", at: "2026-10-05T16:30:00+08:00", actor: "Maria Santos", kind: "approved", text: "approved claim CL-497", subject: "Navy folding umbrella", href: "/admin/claims/CL-497" },
+  { id: "ac12", at: "2026-10-03T14:18:00+08:00", actor: "Maria Santos", kind: "asked", text: "asked for more details on claim CL-512", subject: "Black leather wallet", href: "/admin/claims/CL-512" },
+  { id: "ac11", at: "2026-10-03T09:02:00+08:00", actor: "Jose Ramirez", kind: "hid", text: "hid lost report LR-221", subject: "White wireless earbuds", href: "/admin/lost/LR-221" },
+  { id: "ac10", at: "2026-09-30T10:20:00+08:00", actor: "Jose Ramirez", kind: "disposed", text: "disposed of BG-0979", subject: "Umbrella, floral", href: "/admin/items/BG-0979" },
+  { id: "ac09", at: "2026-09-30T10:00:00+08:00", actor: "Maria Santos", kind: "donated", text: "donated BG-0974", subject: "Water bottle, green", href: "/admin/items/BG-0974" },
+  { id: "ac08", at: "2026-09-30T10:00:00+08:00", actor: "Maria Santos", kind: "approved", text: "approved claim CL-491", subject: "Keys with blue tag", href: "/admin/claims/CL-491" },
+  { id: "ac07", at: "2026-09-28T11:05:00+08:00", actor: "Maria Santos", kind: "logged", text: "logged BG-1053", subject: "Dark blue umbrella, large", href: "/admin/items/BG-1053" },
+  { id: "ac06", at: "2026-09-26T15:40:00+08:00", actor: "Jose Ramirez", kind: "logged", text: "logged BG-1048", subject: "Navy folding umbrella", href: "/admin/items/BG-1048" },
+  { id: "ac05", at: "2026-09-25T14:00:00+08:00", actor: "Jose Ramirez", kind: "released", text: "released BG-1011 to Angela Reyes", subject: "House keys with red keychain", href: "/admin/items/BG-1011" },
+  { id: "ac04", at: "2026-09-24T16:12:00+08:00", actor: "Maria Santos", kind: "logged", text: "logged BG-1042", subject: "Black leather wallet", href: "/admin/items/BG-1042" },
+  { id: "ac03", at: "2026-09-22T09:30:00+08:00", actor: "Maria Santos", kind: "rejected", text: "rejected claim CL-488", subject: "Scientific calculator", href: "/admin/claims/CL-488" },
+  { id: "ac02", at: "2026-09-20T08:10:00+08:00", actor: "Maria Santos", kind: "places", text: "archived the category “Calculators”" },
+  { id: "ac01", at: "2026-09-16T10:45:00+08:00", actor: "Jose Ramirez", kind: "edited", text: "edited BG-1031", subject: "Keys with blue tag", href: "/admin/items/BG-1031" },
 ];

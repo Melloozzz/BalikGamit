@@ -4,7 +4,9 @@
 export type Role = "student" | "admin" | "super_admin";
 
 export type LostReportStatus = "active" | "resolved" | "closed" | "expired" | "hidden";
-export type FoundItemStatus = "in_custody" | "claim_pending" | "ready_for_pickup" | "returned";
+export type FoundItemStatus = "in_custody" | "claim_pending" | "ready_for_pickup" | "returned" | "donated" | "disposed";
+/** Statuses where the item is still physically with the office. */
+export const ON_SHELF: FoundItemStatus[] = ["in_custody", "claim_pending", "ready_for_pickup"];
 export type ClaimStatus =
   | "pending"
   | "needs_info"
@@ -41,6 +43,12 @@ export interface FoundItem {
   /** Admin-only. Never rendered on student pages and never sent to the AI service. */
   privateDetails?: string;
   loggedBy?: string;
+  /** Set when the item leaves the office. */
+  returnedOn?: string;
+  /** The office extended the holding period to this date. */
+  holdUntil?: string;
+  /** Donated or disposed after the holding period. */
+  disposal?: { method: "donated" | "disposed"; note: string; by: string; at: string };
 }
 
 export interface LostReport {
@@ -125,4 +133,30 @@ export interface FlaggedPost {
   reporterLabel: string;
   reason: string;
   visible: boolean;
+  /** Optional extra detail from the student who reported it */
+  note?: string;
+  reportedAt?: string;
+  /** Never shown in the UI; used to stop one student flagging the same post twice */
+  reporterId?: string;
+}
+
+export type FlagReason = "contact" | "fake" | "offensive" | "other";
+
+export interface Activity {
+  id: string;
+  at: string;
+  /** Office staff name */
+  actor: string;
+  kind: "logged" | "edited" | "approved" | "rejected" | "asked" | "released" | "returned_to_custody" | "hid" | "unhid" | "donated" | "disposed" | "extended" | "places" | "admins";
+  /** Plain sentence after the actor's name, e.g. "approved claim CL-497" */
+  text: string;
+  /** Item or report title for context */
+  subject?: string;
+  href?: string;
+}
+
+/** A category or a location in the dropdown lists. */
+export interface Place {
+  name: string;
+  archived: boolean;
 }

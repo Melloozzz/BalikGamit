@@ -83,7 +83,7 @@ function ReportActions({ r }: { r: LostReport }) {
             <p className="match-chip">
               <Icon name="search" size={20} /> {r.matchCount} possible matches found
             </p>
-            <Link to={`/reports/${r.id}/matches`} className="btn btn--navy btn--block">
+            <Link to={`/reports/${r.id}/matches`} state={{ from: "/reports" }} className="btn btn--navy btn--block">
               View matches
             </Link>
           </>
@@ -91,7 +91,7 @@ function ReportActions({ r }: { r: LostReport }) {
           <p className="side-note">No matches yet. We'll notify you when a possible match is logged.</p>
         )}
         <div className="report-card__row">
-          <Link to={`/report?edit=${r.id}`} className="btn btn--outline btn--sm">
+          <Link to={`/report?edit=${r.id}`} state={{ from: "/reports" }} className="btn btn--outline btn--sm">
             Edit
           </Link>
           <button className="link-btn" onClick={() => setReportStatus(r.id, "resolved")}>
@@ -113,7 +113,7 @@ function ReportActions({ r }: { r: LostReport }) {
     return (
       <>
         <p className="side-note side-note--danger">{r.statusNote}</p>
-        <Link to={`/report?edit=${r.id}`} className="btn btn--outline btn--block">
+        <Link to={`/report?edit=${r.id}`} state={{ from: "/reports" }} className="btn btn--outline btn--block">
           Edit report
         </Link>
       </>

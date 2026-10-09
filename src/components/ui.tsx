@@ -1,5 +1,5 @@
 import { useId, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import type { ClaimStatus, FoundItem, LostReportStatus, FoundItemStatus, Likelihood } from "../data/types";
 import { Icon, type IconName } from "./Icon";
 import logo from "../assets/logo.png";
@@ -28,6 +28,8 @@ const itemStatus: Record<FoundItemStatus, { label: string; tone: Tone; icon?: Ic
   claim_pending: { label: "Claim pending", tone: "amber" },
   ready_for_pickup: { label: "Ready for pickup", tone: "green", icon: "check" },
   returned: { label: "Returned", tone: "gray", icon: "check" },
+  donated: { label: "Donated", tone: "gray", icon: "gift" },
+  disposed: { label: "Disposed", tone: "gray", icon: "trash" },
 };
 
 function Badge({ label, tone, icon, dot, large }: { label: string; tone: Tone; icon?: IconName; dot?: "solid" | "ring"; large?: boolean }) {
@@ -228,9 +230,24 @@ export function Alert({ tone = "error", children }: { tone?: "error" | "info" | 
   );
 }
 
+/**
+ * Goes to `to` without leaving this page behind it in history, so `to`'s own Back button can't return here.
+ * Opened from `to` (a link with `state={{ from: to }}`): steps back. Otherwise: replaces this page with `to`.
+ */
 export function BackLink({ to, children }: { to: string; children: ReactNode }) {
+  const navigate = useNavigate();
+  const cameFrom = (useLocation().state as { from?: string } | null)?.from === to;
   return (
-    <Link to={to} className="back-link">
+    <Link
+      to={to}
+      replace
+      className="back-link"
+      onClick={(e) => {
+        if (!cameFrom) return;
+        e.preventDefault();
+        navigate(-1);
+      }}
+    >
       <Icon name="chevronLeft" size={18} strokeWidth={2} />
       {children}
     </Link>

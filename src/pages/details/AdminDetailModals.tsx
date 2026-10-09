@@ -1,9 +1,10 @@
 import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Modal, ModalLink } from "../../components/Modal";
-import { CategoryPill, ClaimBadge, ItemBadge, ItemPhoto, LikelihoodBadge, Loading, ReportBadge } from "../../components/ui";
+import { Alert, CategoryPill, ClaimBadge, ItemBadge, ItemPhoto, LikelihoodBadge, Loading, ReportBadge } from "../../components/ui";
 import { getFoundItem, getMatches, getProfile, getReport, listClaimsForItem, setReportStatus } from "../../data/api";
 import { longDate, shortDate } from "../../lib/format";
+import { ON_SHELF } from "../../data/types";
 import { useLoad } from "../../lib/useLoad";
 
 function Kv({ rows }: { rows: [string, string][] }) {
@@ -36,6 +37,7 @@ export function AdminFoundItemModal() {
       </Modal>
     );
   const open = claims.filter((c) => c.status === "pending" || c.status === "needs_info").length;
+  const onShelf = ON_SHELF.includes(item.status);
   return (
     <Modal
       office
@@ -51,6 +53,17 @@ export function AdminFoundItemModal() {
           <CategoryPill>{item.category}</CategoryPill>
           <p className="modal-detail__desc">{item.description}</p>
           <Kv rows={[["Found at", item.location], ["Date found", longDate(item.foundOn)]]} />
+          {item.disposal && (
+            <Alert tone="info">
+              {item.disposal.method === "donated" ? "Donated" : "Disposed of"} on {longDate(item.disposal.at)} by {item.disposal.by}. {item.disposal.note}
+            </Alert>
+          )}
+          {item.returnedOn && <Alert tone="success">Returned to its owner on {longDate(item.returnedOn)}.</Alert>}
+          {onShelf && (
+            <Link to={`/admin/items/${item.id}/edit`} state={{ fromPopup: true }} className="btn btn--outline-blue modal-admin__edit">
+              <Icon name="edit" size={18} /> Edit item
+            </Link>
+          )}
         </section>
         <section className="modal-admin__col">
           <div className="modal-private">

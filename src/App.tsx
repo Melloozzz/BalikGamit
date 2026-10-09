@@ -33,6 +33,7 @@ import { AllItems } from "./pages/student/AllItems";
 import { Inbox } from "./pages/shared/Inbox";
 import { ProfilePage } from "./pages/shared/ProfilePage";
 import { Settings } from "./pages/student/Settings";
+import { Account } from "./pages/student/Account";
 
 import { Dashboard } from "./pages/admin/Dashboard";
 import { LogFoundItem } from "./pages/admin/LogFoundItem";
@@ -41,6 +42,13 @@ import { ClaimReview } from "./pages/admin/ClaimReview";
 import { ReleaseItem } from "./pages/admin/ReleaseItem";
 import { FlaggedPosts } from "./pages/admin/FlaggedPosts";
 import { ManageAdmins } from "./pages/admin/ManageAdmins";
+import { FoundItems } from "./pages/admin/FoundItems";
+import { EditFoundItem } from "./pages/admin/EditFoundItem";
+import { Unclaimed } from "./pages/admin/Unclaimed";
+import { LostReports } from "./pages/admin/LostReports";
+import { Places } from "./pages/admin/Places";
+import { Reports } from "./pages/admin/Reports";
+import { ActivityLog } from "./pages/admin/ActivityLog";
 import { detailFallback } from "./components/Modal";
 import { FoundItemModal, LostItemModal } from "./pages/details/StudentDetailModals";
 import { AdminFoundItemModal, AdminLostReportModal } from "./pages/details/AdminDetailModals";
@@ -113,6 +121,8 @@ export function App() {
           <Route path="reports" element={<MyReports />} />
           <Route path="reports/:reportId/matches" element={<MatchSuggestions />} />
           <Route path="notifications" element={<Inbox who="student" />} />
+          <Route path="messages" element={<Inbox who="student" only="messages" />} />
+          <Route path="account" element={<Account />} />
           <Route path="profile" element={<ProfilePage area="student" />} />
           <Route path="settings" element={<Settings />} />
         </Route>
@@ -130,10 +140,25 @@ export function App() {
           <Route path="claims" element={<ClaimQueue />} />
           <Route path="claims/:claimId" element={<ClaimReview />} />
           <Route path="claims/:claimId/release" element={<ReleaseItem />} />
+          <Route path="items" element={<FoundItems />} />
+          <Route path="items/:itemId/edit" element={<EditFoundItem />} />
+          <Route path="unclaimed" element={<Unclaimed />} />
+          <Route path="lost" element={<LostReports />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="activity" element={<ActivityLog />} />
           <Route path="flagged" element={<FlaggedPosts />} />
           <Route path="notifications" element={<Inbox who="office" />} />
+          <Route path="messages" element={<Inbox who="office" only="messages" />} />
           <Route path="profile" element={<ProfilePage area="office" />} />
           <Route path="settings" element={<Settings area="office" />} />
+          <Route
+            path="places"
+            element={
+              <Guard area="super">
+                <Places />
+              </Guard>
+            }
+          />
           <Route
             path="admins"
             element={

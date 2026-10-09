@@ -22,7 +22,7 @@ export function ReleaseItem() {
           {claim.status === "completed"
             ? `${item.title} was released to ${who?.fullName}. The claim and its messages are closed.`
             : `This claim is ${claim.status.replace("_", " ")}, so there's nothing to release.`}{" "}
-          <Link to="/admin/claims">Back to the queue</Link>
+          <Link to="/admin/claims" replace>Back to the queue</Link>
         </Alert>
       </div>
     );

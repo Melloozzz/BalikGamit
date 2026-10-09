@@ -7,6 +7,7 @@
 import { useSyncExternalStore } from "react";
 import * as db from "./mock";
 import type {
+  Activity,
   Claim,
   ClaimStatus,
   FlaggedPost,
@@ -17,7 +18,10 @@ import type {
   Notification,
   Profile,
   Role,
+  FlagReason,
+  Place,
 } from "./types";
+import { ON_SHELF } from "./types";
 import { todayIso } from "../lib/format";
 import { supabase } from "../lib/supabase";
 
@@ -44,6 +48,17 @@ export function useDataVersion() {
   );
 }
 
+// ---- audit trail ------------------------------------------------------------------------
+// Demo mode records the signed-in staff name here. In production a database trigger writes the
+// activity row from auth.uid(), so the browser can't fake or skip it.
+let actor = "Office";
+export const setActor = (name: string) => {
+  actor = name;
+};
+function record(kind: Activity["kind"], text: string, subject?: string, href?: string) {
+  db.activity.unshift({ id: crypto.randomUUID(), at: new Date().toISOString(), actor, kind, text, subject, href });
+}
+
 const delay = <T,>(value: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(value), ms));
 const nowIso = () => new Date().toISOString();
 
@@ -66,7 +81,7 @@ export interface ItemFilters {
 export function listFoundItems(f: ItemFilters = {}): Promise<FoundItem[]> {
   const q = f.q?.trim().toLowerCase();
   const items = db.foundItems
-    .filter((i) => i.status !== "returned")
+    .filter((i) => ON_SHELF.includes(i.status))
     .filter((i) => !f.category || i.category === f.category)
     .filter((i) => !f.location || i.location === f.location)
     .filter((i) => !f.since || i.foundOn >= f.since)
@@ -97,7 +112,7 @@ export async function aiSearch(query: string): Promise<FoundItem[]> {
   }
   const words = query.toLowerCase().match(/[a-z0-9]+/g) ?? [];
   const scored = db.foundItems
-    .filter((i) => i.status !== "returned")
+    .filter((i) => ON_SHELF.includes(i.status))
     .map((i) => {
       const hay = `${i.title} ${i.description} ${i.category} ${i.location}`.toLowerCase();
       return { i, score: words.filter((w) => w.length > 2 && hay.includes(w)).length };
@@ -111,6 +126,64 @@ export async function logFoundItem(input: Omit<FoundItem, "id" | "status">) {
   const next = Math.max(...db.foundItems.map((i) => Number(i.id.slice(3)))) + 1;
   const item: FoundItem = { ...input, id: `BG-${next}`, status: "in_custody" };
   db.foundItems.unshift(item);
+  record("logged", `logged ${item.id}`, item.title, `/admin/items/${item.id}`);
+  emit();
+  return delay(item);
+}
+
+/** Office inventory: every found item, admin fields included, newest first. */
+export const listAllFoundItems = () => delay([...db.foundItems].sort((a, b) => b.foundOn.localeCompare(a.foundOn)));
+
+export type FoundItemPatch = Partial<
+  Pick<FoundItem, "title" | "category" | "location" | "locationDetail" | "foundOn" | "description" | "privateDetails" | "photo" | "shelfTag">
+>;
+export async function updateFoundItem(id: string, patch: FoundItemPatch) {
+  const item = db.foundItems.find((i) => i.id === id);
+  if (!item) throw new Error("Item not found.");
+  Object.assign(item, patch);
+  record("edited", `edited ${item.id}`, item.title, `/admin/items/${item.id}`);
+  emit();
+  return delay(item);
+}
+
+// ---- holding period -------------------------------------------------------------------
+const DAY = 86_400_000;
+const isoDay = (iso: string) => new Date(`${iso}T00:00:00+08:00`).getTime();
+/** Whole days the office has held this item (until today, or until it left). */
+export function daysHeld(item: FoundItem) {
+  const end = item.returnedOn ? isoDay(item.returnedOn) : item.disposal ? new Date(item.disposal.at).getTime() : isoDay(todayIso());
+  return Math.max(0, Math.round((end - isoDay(item.foundOn)) / DAY));
+}
+/** Last day of the holding period, counting any extension. */
+export function holdEnds(item: FoundItem) {
+  if (item.holdUntil) return item.holdUntil;
+  return new Date(isoDay(item.foundOn) + db.OFFICE.holdingDays * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}
+const hasOpenClaim = (itemId: string) =>
+  db.claims.some((c) => c.itemId === itemId && ["pending", "needs_info", "approved"].includes(c.status));
+/** In custody, past the holding period, and nobody is claiming it. */
+export const isUnclaimed = (item: FoundItem) => item.status === "in_custody" && holdEnds(item) < todayIso() && !hasOpenClaim(item.id);
+
+export const listUnclaimed = () => delay(db.foundItems.filter(isUnclaimed).sort((a, b) => a.foundOn.localeCompare(b.foundOn)));
+export const listDisposed = () =>
+  delay(db.foundItems.filter((i) => i.disposal).sort((a, b) => b.disposal!.at.localeCompare(a.disposal!.at)));
+
+export async function disposeItem(id: string, method: "donated" | "disposed", note: string) {
+  const item = db.foundItems.find((i) => i.id === id);
+  if (!item) throw new Error("Item not found.");
+  if (!isUnclaimed(item)) throw new Error("This item has an open claim or is still within its holding period.");
+  item.status = method;
+  item.disposal = { method, note, by: actor, at: new Date().toISOString() };
+  record(method, `${method === "donated" ? "donated" : "disposed of"} ${item.id}`, item.title, `/admin/items/${item.id}`);
+  emit();
+  return delay(item);
+}
+
+export async function extendHold(id: string, days: number) {
+  const item = db.foundItems.find((i) => i.id === id);
+  if (!item) throw new Error("Item not found.");
+  item.holdUntil = new Date(isoDay(todayIso()) + days * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+  record("extended", `kept ${item.id} for ${days} more days`, item.title, `/admin/items/${item.id}`);
   emit();
   return delay(item);
 }
@@ -128,6 +201,14 @@ export async function getPublicLostReport(id: string, viewerId?: string) {
   const { privateDetails: _p, ownerId, ...pub } = r;
   return delay({ ...pub, mine: ownerId === viewerId });
 }
+
+/** Office view of every lost report, with the owner's name and email. */
+export const listAllLostReports = () =>
+  delay(
+    [...db.lostReports]
+      .sort((a, b) => b.lostOn.localeCompare(a.lostOn))
+      .map((r) => ({ ...r, owner: getProfile(r.ownerId), flags: db.flaggedPosts.filter((f) => f.reportId === r.id).length })),
+  );
 
 export const getReport = (id: string) => delay(db.lostReports.find((r) => r.id === id) ?? null);
 
@@ -236,6 +317,13 @@ export async function withdrawClaim(id: string) {
 export async function decideClaim(id: string, decision: "approve" | "reject" | "request_info", reason?: string) {
   const c = db.claims.find((x) => x.id === id);
   if (!c) throw new Error("Claim not found.");
+  const subject = db.foundItems.find((i) => i.id === c.itemId)?.title;
+  record(
+    decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "asked",
+    decision === "approve" ? `approved claim ${c.id}` : decision === "reject" ? `rejected claim ${c.id}` : `asked for more details on claim ${c.id}`,
+    subject,
+    `/admin/claims/${c.id}`,
+  );
   if (decision === "approve") {
     setClaimStatus(c, "approved");
     const pickup = new Date();
@@ -264,7 +352,11 @@ export async function confirmRelease(claimId: string) {
   if (!c) throw new Error("Claim not found.");
   setClaimStatus(c, "completed");
   const item = db.foundItems.find((i) => i.id === c.itemId);
-  if (item) item.status = "returned";
+  if (item) {
+    item.status = "returned";
+    item.returnedOn = todayIso();
+    record("released", `released ${item.id} to ${getProfile(c.claimantId)?.fullName ?? "the claimant"}`, item.title, `/admin/items/${item.id}`);
+  }
   const report = c.linkedReportId && db.lostReports.find((r) => r.id === c.linkedReportId);
   if (report) report.status = "resolved";
   emit();
@@ -276,7 +368,10 @@ export async function returnToCustody(claimId: string) {
   if (!c) throw new Error("Claim not found.");
   setClaimStatus(c, "expired");
   const item = db.foundItems.find((i) => i.id === c.itemId);
-  if (item) item.status = "in_custody";
+  if (item) {
+    item.status = "in_custody";
+    record("returned_to_custody", `put ${item.id} back on the shelf (claim ${c.id} not picked up)`, item.title, `/admin/items/${item.id}`);
+  }
   emit();
   return delay(c);
 }
@@ -358,7 +453,7 @@ export function profileStats(user: Profile) {
   return [
     { label: "Items you logged", value: db.foundItems.filter((i) => i.loggedBy === user.fullName).length },
     { label: "Claims needing action", value: db.claims.filter((c) => ["pending", "needs_info", "approved"].includes(c.status)).length },
-    { label: "Items in custody", value: db.foundItems.filter((i) => i.status !== "returned").length },
+    { label: "Items in custody", value: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length },
   ];
 }
 
@@ -369,11 +464,167 @@ export async function setFlaggedVisible(id: string, visible: boolean) {
   if (f) {
     f.visible = visible;
     const r = db.lostReports.find((x) => x.id === f.reportId);
-    if (r) r.status = visible ? "active" : "hidden";
+    if (r) {
+      r.status = visible ? "active" : "hidden";
+      record(visible ? "unhid" : "hid", `${visible ? "made visible" : "hid"} lost report ${r.id}`, r.title, `/admin/lost/${r.id}`);
+    }
   }
   emit();
   return delay(f);
 }
+
+const FLAG_TEXT: Record<FlagReason, string> = {
+  contact: "Shows personal contact details",
+  fake: "Fake, spam or a joke post",
+  offensive: "Offensive or inappropriate",
+  other: "Something else",
+};
+/** A student reports a lost report. The post stays visible until the office decides. */
+export async function flagReport(reportId: string, reporterId: string, reason: FlagReason, note?: string) {
+  const r = db.lostReports.find((x) => x.id === reportId);
+  if (!r) throw new Error("This post isn't available anymore.");
+  if (r.ownerId === reporterId) throw new Error("You can't report your own post.");
+  if (db.flaggedPosts.some((f) => f.reportId === reportId && f.reporterId === reporterId))
+    throw new Error("You already reported this post. The office will review it.");
+  const email = getProfile(reporterId)?.email ?? "";
+  const next = Math.max(...db.flaggedPosts.map((f) => Number(f.id.slice(3)))) + 1;
+  db.flaggedPosts.unshift({
+    id: `FP-${next}`,
+    reportId,
+    title: r.title,
+    reporterLabel: email ? `${email[0]}•••@${email.split("@")[1]}` : "a student",
+    reporterId,
+    reason: FLAG_TEXT[reason],
+    note: note?.trim() || undefined,
+    visible: true,
+    reportedAt: new Date().toISOString(),
+  });
+  db.adminNotifications.unshift({
+    id: crypto.randomUUID(),
+    kind: "flagged",
+    title: "A lost report was flagged",
+    detail: `${r.title} · ${FLAG_TEXT[reason].toLowerCase()}`,
+    at: new Date().toISOString(),
+    read: false,
+    href: "/admin/flagged",
+  });
+  emit();
+  return delay(true, 300);
+}
+
+// ---- categories and locations (super admin) -------------------------------------------
+type PlaceKind = "category" | "location";
+const lists = (k: PlaceKind) => (k === "category" ? { live: db.CATEGORIES, archived: db.ARCHIVED_CATEGORIES } : { live: db.LOCATIONS, archived: db.ARCHIVED_LOCATIONS });
+const usage = (k: PlaceKind, name: string) => ({
+  items: db.foundItems.filter((i) => (k === "category" ? i.category : i.location) === name).length,
+  reports: db.lostReports.filter((r) => (k === "category" ? r.category : r.location) === name).length,
+});
+export function listPlaces(k: PlaceKind): (Place & { items: number; reports: number })[] {
+  const { live, archived } = lists(k);
+  return [...live.map((name) => ({ name, archived: false })), ...archived.map((name) => ({ name, archived: true }))].map((p) => ({ ...p, ...usage(k, p.name) }));
+}
+const label = (k: PlaceKind) => (k === "category" ? "category" : "location");
+export async function addPlace(k: PlaceKind, name: string) {
+  const n = name.trim();
+  const { live, archived } = lists(k);
+  if (!n) throw new Error("Type a name first.");
+  if ([...live, ...archived].some((x) => x.toLowerCase() === n.toLowerCase())) throw new Error(`That ${label(k)} already exists.`);
+  // Keep "Other"/"Others" last in the dropdown.
+  const otherAt = live.findIndex((x) => /^others?$/i.test(x));
+  live.splice(otherAt === -1 ? live.length : otherAt, 0, n);
+  record("places", `added the ${label(k)} “${n}”`);
+  emit();
+  return delay(true);
+}
+export async function renamePlace(k: PlaceKind, from: string, to: string) {
+  const n = to.trim();
+  const { live, archived } = lists(k);
+  if (!n) throw new Error("The name can't be empty.");
+  if (n !== from && [...live, ...archived].some((x) => x.toLowerCase() === n.toLowerCase())) throw new Error(`That ${label(k)} already exists.`);
+  for (const arr of [live, archived]) {
+    const at = arr.indexOf(from);
+    if (at !== -1) arr[at] = n;
+  }
+  // Existing records follow the rename so filters and reports stay correct.
+  for (const i of db.foundItems) if (k === "category" ? i.category === from : i.location === from) k === "category" ? (i.category = n) : (i.location = n);
+  for (const r of db.lostReports) if (k === "category" ? r.category === from : r.location === from) k === "category" ? (r.category = n) : (r.location = n);
+  record("places", `renamed the ${label(k)} “${from}” to “${n}”`);
+  emit();
+  return delay(true);
+}
+export async function setPlaceArchived(k: PlaceKind, name: string, archived: boolean) {
+  const { live, archived: arch } = lists(k);
+  const [from, into] = archived ? [live, arch] : [arch, live];
+  const at = from.indexOf(name);
+  if (at === -1) return delay(false);
+  from.splice(at, 1);
+  into.push(name);
+  record("places", `${archived ? "archived" : "restored"} the ${label(k)} “${name}”`);
+  emit();
+  return delay(true);
+}
+
+// ---- office reports --------------------------------------------------------------------
+export interface OfficeReport {
+  from: string;
+  to: string;
+  logged: number;
+  returned: number;
+  returnRate: number | null;
+  medianDaysToReturn: number | null;
+  lostReports: number;
+  approved: number;
+  rejected: number;
+  disposed: number;
+  weeks: { start: string; logged: number; returned: number }[];
+  topCategories: { name: string; n: number }[];
+  topLocations: { name: string; n: number }[];
+}
+/** Counts for the Reports page. `days` = how far back; omit for all time. In production this is one SQL view. */
+export function officeReport(days?: number): OfficeReport {
+  const to = todayIso();
+  const earliest = db.foundItems.reduce((m, i) => (i.foundOn < m ? i.foundOn : m), to);
+  const from = days ? new Date(isoDay(to) - (days - 1) * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : earliest;
+  const inRange = (d?: string) => !!d && d.slice(0, 10) >= from && d.slice(0, 10) <= to;
+  const logged = db.foundItems.filter((i) => inRange(i.foundOn));
+  const returned = db.foundItems.filter((i) => inRange(i.returnedOn));
+  const spans = returned.map((i) => Math.round((isoDay(i.returnedOn!) - isoDay(i.foundOn)) / DAY)).sort((a, b) => a - b);
+  const median = spans.length ? (spans.length % 2 ? spans[(spans.length - 1) / 2] : (spans[spans.length / 2 - 1] + spans[spans.length / 2]) / 2) : null;
+  const decided = (st: "approved" | "rejected") => db.claims.filter((c) => c.history.some((h) => h.status === st && inRange(new Date(h.at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })))).length;
+  // Weeks start on Monday.
+  const dow = new Date(`${from}T12:00:00+08:00`).getUTCDay();
+  const monday = isoDay(from) - ((dow + 6) % 7) * DAY;
+  const weeks: OfficeReport["weeks"] = [];
+  for (let t = monday; t <= isoDay(to); t += 7 * DAY) {
+    const s = new Date(t).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    const e = new Date(t + 6 * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    const w = (d?: string) => !!d && d >= s && d <= e && inRange(d);
+    weeks.push({ start: s, logged: db.foundItems.filter((i) => w(i.foundOn)).length, returned: db.foundItems.filter((i) => w(i.returnedOn)).length });
+  }
+  const top = (key: "category" | "location") => {
+    const m = new Map<string, number>();
+    for (const i of logged) m.set(i[key], (m.get(i[key]) ?? 0) + 1);
+    return [...m].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 5);
+  };
+  return {
+    from,
+    to,
+    logged: logged.length,
+    returned: returned.length,
+    returnRate: logged.length ? Math.round((logged.filter((i) => i.status === "returned").length / logged.length) * 100) : null,
+    medianDaysToReturn: median,
+    lostReports: db.lostReports.filter((r) => inRange(r.lostOn)).length,
+    approved: decided("approved"),
+    rejected: decided("rejected"),
+    disposed: db.foundItems.filter((i) => i.disposal && inRange(new Date(i.disposal.at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }))).length,
+    weeks,
+    topCategories: top("category"),
+    topLocations: top("location"),
+  };
+}
+
+// ---- activity log -------------------------------------------------------------------------
+export const listActivity = () => delay([...db.activity].sort((a, b) => b.at.localeCompare(a.at)));
 
 // ---- admins (super admin only) ------------------------------------------------------
 export const listAdmins = () => delay(db.profiles.filter((p) => p.role !== "student"));
@@ -381,12 +632,16 @@ export async function inviteAdmin(fullName: string, email: string, role: Exclude
   if (findProfileByEmail(email)) throw new Error("That email already has an account.");
   const p: Profile = { id: crypto.randomUUID(), fullName, email, role, active: true };
   db.profiles.push(p);
+  record("admins", `invited ${fullName} as ${role === "super_admin" ? "a super admin" : "an admin"}`);
   emit();
   return delay(p);
 }
 export async function setAdminActive(id: string, active: boolean) {
   const p = db.profiles.find((x) => x.id === id);
-  if (p) p.active = active;
+  if (p) {
+    p.active = active;
+    record("admins", `${active ? "reactivated" : "deactivated"} ${p.fullName}'s office account`);
+  }
   emit();
   return delay(p);
 }
@@ -394,7 +649,8 @@ export async function setAdminActive(id: string, active: boolean) {
 // ---- dashboard ------------------------------------------------------------------------
 export function dashboardCounts() {
   return {
-    inCustody: db.foundItems.filter((i) => i.status !== "returned").length,
+    inCustody: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length,
+    unclaimed: db.foundItems.filter(isUnclaimed).length,
     // Same rule as the Claim Queue "Needs action" tab: waiting on a decision, a reply, or a release.
     claimsToAct: db.claims.filter((c) => c.status === "pending" || c.status === "needs_info" || c.status === "approved").length,
     flagged: db.flaggedPosts.filter((f) => f.visible).length,

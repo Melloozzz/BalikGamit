@@ -1,5 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { BackButton, Alert, PageHead, SelectField, TextAreaField, TextField } from "../../components/ui";
 import { createReport, getReport, updateReport } from "../../data/api";
@@ -16,6 +16,7 @@ export function ReportLost() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editId = params.get("edit");
+  const fromReports = (useLocation().state as { from?: string } | null)?.from === "/reports";
   const [form, setForm] = useState(EMPTY);
   const [photo, setPhoto] = useState<{ url: string; name: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -50,10 +51,12 @@ export function ReportLost() {
     setBusy(true);
     if (editId) {
       await updateReport(editId, { ...parsed.data, ...(photo ? { photo: photo.url } : {}) });
-      navigate("/reports");
+      // Opened from My reports: step back to it so its Back button doesn't reopen this form.
+      if (fromReports) navigate(-1);
+      else navigate("/reports", { replace: true });
     } else {
       await createReport(user!.id, { ...parsed.data, photo: photo?.url });
-      navigate("/report/submitted");
+      navigate("/report/submitted", { replace: true });
     }
   }
 

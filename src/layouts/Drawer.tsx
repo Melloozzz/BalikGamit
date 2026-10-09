@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { NavLink } from "react-router";
 import { Icon, type IconName } from "../components/Icon";
 import { LogoTile, Wordmark } from "../components/Brand";
@@ -11,7 +11,7 @@ export interface NavItem {
 }
 
 /** Slide-in navigation used by the menu button on student and admin pages (Figma "Sidebar | Home"). */
-export function Drawer({ open, onClose, items, onSignOut }: { open: boolean; onClose: () => void; items: NavItem[]; onSignOut: () => void }) {
+export function Drawer({ open, onClose, items, onSignOut, footer, className = "" }: { open: boolean; onClose: () => void; items: NavItem[]; onSignOut?: () => void; footer?: ReactNode; className?: string }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -22,7 +22,7 @@ export function Drawer({ open, onClose, items, onSignOut }: { open: boolean; onC
   }, [open, onClose]);
 
   return (
-    <div className={`drawer ${open ? "drawer--open" : ""}`} aria-hidden={!open}>
+    <div className={`drawer ${className} ${open ? "drawer--open" : ""}`} aria-hidden={!open}>
       <div className="drawer__scrim" onClick={onClose} />
       <div className="drawer__panel" ref={panel} role="dialog" aria-modal="true" aria-label="Main menu">
         <div className="drawer__head">
@@ -40,10 +40,13 @@ export function Drawer({ open, onClose, items, onSignOut }: { open: boolean; onC
             </NavLink>
           ))}
         </nav>
-        <button className="drawer__link drawer__signout" onClick={onSignOut}>
-          <Icon name="logout" size={20} />
-          Sign out
-        </button>
+        {footer && <div className="drawer__foot">{footer}</div>}
+        {onSignOut && (
+          <button className="drawer__link drawer__signout" onClick={onSignOut}>
+            <Icon name="logout" size={20} />
+            Sign out
+          </button>
+        )}
       </div>
     </div>
   );

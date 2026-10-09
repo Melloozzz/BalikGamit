@@ -7,7 +7,8 @@ import { Icon } from "./Icon";
 export function detailFallback(pathname: string): string | null {
   if (/^\/items\/[^/]+\/?$/.test(pathname)) return "/items";
   if (/^\/lost\/[^/]+\/?$/.test(pathname)) return "/lost";
-  if (/^\/admin\/(items|lost)\/[^/]+\/?$/.test(pathname)) return "/admin";
+  if (/^\/admin\/items\/[^/]+\/?$/.test(pathname)) return "/admin/items";
+  if (/^\/admin\/lost\/[^/]+\/?$/.test(pathname)) return "/admin/lost";
   return null;
 }
 
@@ -29,6 +30,7 @@ export function Modal({
   aside,
   meta,
   office,
+  narrow,
   children,
 }: {
   label: string;
@@ -37,6 +39,8 @@ export function Modal({
   aside?: ReactNode;
   meta?: ReactNode;
   office?: boolean;
+  /** Smaller dialog for short forms */
+  narrow?: boolean;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
@@ -60,7 +64,7 @@ export function Modal({
   }, []);
 
   return createPortal(
-    <div className={`modal ${office ? "modal--office" : ""}`}>
+    <div className={`modal ${office ? "modal--office" : ""} ${narrow ? "modal--narrow" : ""}`}>
       <div className="modal__scrim" onClick={close} />
       <div className="modal__dialog" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} ref={box}>
         <header className="modal__head">

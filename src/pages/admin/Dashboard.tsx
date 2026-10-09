@@ -10,13 +10,13 @@ export function Dashboard() {
   if (!claims) return <Loading />;
   const counts = dashboardCounts();
   const stats: { icon: IconName; n: number; label: string; to?: string }[] = [
-    { icon: "box", n: counts.inCustody, label: "Items in custody" },
+    { icon: "box", n: counts.inCustody, label: "Items in custody", to: "/admin/items" },
     { icon: "clock", n: counts.claimsToAct, label: "Claims needing action", to: "/admin/claims" },
     { icon: "flag", n: counts.flagged, label: "Flagged posts", to: "/admin/flagged" },
   ];
 
   return (
-    <div className="container stack-lg">
+    <div className="container stack-lg dash">
       <PageHead
         eyebrow="OFFICE WORKSPACE"
         title={timeOfDayGreeting()}
@@ -51,9 +51,14 @@ export function Dashboard() {
         })}
       </div>
       <section className="table-card" aria-labelledby="rc">
-        <h2 id="rc" className="table-card__title">
-          Recent Claims
-        </h2>
+        <div className="dash__rc-head">
+          <h2 id="rc" className="table-card__title">
+            Recent Claims
+          </h2>
+          <Link to="/admin/claims" className="dash__all">
+            View all
+          </Link>
+        </div>
         <ul>
           {claims.slice(0, 5).map((c) => {
             const item = itemFor(c.itemId)!;
