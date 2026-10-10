@@ -26,7 +26,8 @@ export function SignUp() {
       await signUp(form.fullName.trim(), form.email.trim(), form.password);
       navigate("/check-email", { state: { email: form.email.trim() } });
     } catch (err) {
-      setErrors({ _: err instanceof AuthError ? err.message : "Something went wrong. Try again." });
+      if (err instanceof AuthError && err.code === "weak_password") setErrors({ password: err.message });
+      else setErrors({ _: err instanceof AuthError ? err.message : "Something went wrong. Try again." });
     } finally {
       setBusy(false);
     }
@@ -53,7 +54,15 @@ export function SignUp() {
           onChange={set("email")}
           error={errors.email}
         />
-        <PasswordField label="Password" autoComplete="new-password" placeholder="Enter your password" value={form.password} onChange={set("password")} error={errors.password} />
+        <PasswordField
+          label="Password"
+          autoComplete="new-password"
+          placeholder="Enter your password"
+          value={form.password}
+          onChange={set("password")}
+          error={errors.password}
+          hint="8+ characters with uppercase, lowercase, a number and a symbol."
+        />
         <PasswordField label="Confirm Password" autoComplete="new-password" placeholder="Re-enter your password" value={form.confirm} onChange={set("confirm")} error={errors.confirm} />
         <label className={`consent ${errors.consent ? "consent--error" : ""}`}>
           <input type="checkbox" checked={form.consent} onChange={set("consent")} />

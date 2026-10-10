@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import { PasswordField } from "../../components/ui";
-import { useAuth } from "../../auth/AuthContext";
+import { AuthError, useAuth } from "../../auth/AuthContext";
 import { fieldErrors, resetPasswordSchema } from "../../lib/validation";
 
 export function ResetPassword() {
@@ -25,8 +25,10 @@ export function ResetPassword() {
     try {
       await updatePassword(form.password);
       setDone(true);
-    } catch {
-      navigate("/reset-password/expired");
+    } catch (err) {
+      // A weak password is the user's to fix here; anything else means the reset link no longer works.
+      if (err instanceof AuthError && err.code === "weak_password") setErrors({ password: err.message });
+      else navigate("/reset-password/expired");
     }
   }
 
@@ -54,6 +56,7 @@ export function ResetPassword() {
           value={form.password}
           onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
           error={errors.password}
+          hint="8+ characters with uppercase, lowercase, a number and a symbol."
         />
         <PasswordField
           label="Confirm new password"
