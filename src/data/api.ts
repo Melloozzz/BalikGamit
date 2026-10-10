@@ -17,11 +17,10 @@ import type {
   Message,
   Notification,
   Profile,
-  Role,
   FlagReason,
   Place,
 } from "./types";
-import { ON_SHELF } from "./types";
+import { ON_SHELF, isOfficeRole, type OfficeRole } from "./types";
 import { todayIso } from "../lib/format";
 import { supabase } from "../lib/supabase";
 
@@ -449,7 +448,7 @@ export async function markNotificationsRead(ids?: string[], who: "student" | "of
 
 // ---- profile summary ------------------------------------------------------------------
 export function profileStats(user: Profile) {
-  if (user.role === "student") {
+  if (!isOfficeRole(user.role)) {
     const reports = db.lostReports.filter((r) => r.ownerId === user.id);
     const claims = db.claims.filter((c) => c.claimantId === user.id);
     return [
@@ -647,8 +646,8 @@ export function officeReport(days?: number): OfficeReport {
 export const listActivity = () => delay([...db.activity].sort((a, b) => b.at.localeCompare(a.at)));
 
 // ---- admins (super admin only) ------------------------------------------------------
-export const listAdmins = () => delay(db.profiles.filter((p) => p.role !== "student"));
-export async function inviteAdmin(fullName: string, email: string, role: Exclude<Role, "student">) {
+export const listAdmins = () => delay(db.profiles.filter((p) => isOfficeRole(p.role)));
+export async function inviteAdmin(fullName: string, email: string, role: OfficeRole) {
   if (findProfileByEmail(email)) throw new Error("That email already has an account.");
   const p: Profile = { id: crypto.randomUUID(), fullName, email, role, active: true };
   db.profiles.push(p);

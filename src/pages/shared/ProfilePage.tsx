@@ -6,7 +6,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { OFFICE, profileStats, useDataVersion } from "../../data/api";
 import { longDate } from "../../lib/format";
 
-const roleLabel = { student: "Student", admin: "Admin", super_admin: "Super admin" } as const;
+const roleLabel = { student: "Student", faculty: "Faculty", staff: "Staff", admin: "Admin", super_admin: "Super admin" } as const;
 
 /** "View profile" from the account menu. Read-only summary; edits happen in Settings. */
 export function ProfilePage({ area }: { area: "student" | "office" }) {

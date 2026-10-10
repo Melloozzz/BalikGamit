@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Profile } from "../data/types";
+import { isOfficeRole, type Profile } from "../data/types";
 import { findProfileByEmail } from "../data/api";
 import { profiles } from "../data/mock";
 import { supabase } from "../lib/supabase";
-import { isRtuEmail } from "../lib/validation";
+import { PASSWORD_RULE, isRtuEmail } from "../lib/validation";
+import { PRIVACY_NOTICE_VERSION } from "../lib/consent";
 
 interface AuthState {
   user: Profile | null;
@@ -16,20 +17,37 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+
 const DEMO_KEY = "balikgamit.demoUser";
 
 export class AuthError extends Error {
-  constructor(public code: "wrong_domain" | "invalid_credentials" | "unknown", message: string) {
+  constructor(public code: "wrong_domain" | "invalid_credentials" | "inactive" | "weak_password" | "unknown", message: string) {
     super(message);
   }
+}
+
+/** Supabase error -> a message a student can act on. */
+function toAuthError(error: { code?: string; message: string }): AuthError {
+  if (error.code === "weak_password") return new AuthError("weak_password", PASSWORD_RULE);
+  // The sign-up trigger rejects non-RTU emails; Supabase reports that as a generic database error.
+  if (/database error/i.test(error.message))
+    return new AuthError("wrong_domain", "Please sign up with your RTU email address (@rtu.edu.ph).");
+  return new AuthError("unknown", error.message);
 }
 
 async function loadProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
   // `profiles` holds the role; the role is never taken from anything the client sends.
-  const { data } = await supabase.from("profiles").select("id, full_name, email, role, active").eq("id", userId).single();
+  const { data } = await supabase.from("profiles").select("id, full_name, email, role, is_active, created_at").eq("id", userId).single();
   return data
-    ? { id: data.id, fullName: data.full_name, email: data.email, role: data.role, active: data.active }
+    ? {
+        id: data.id,
+        fullName: data.full_name,
+        email: data.email,
+        role: data.role,
+        active: data.is_active,
+        joinedOn: String(data.created_at).slice(0, 10),
+      }
     : null;
 }
 
@@ -65,6 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error || !data.user) throw new AuthError("invalid_credentials", "Incorrect email or password.");
       const profile = await loadProfile(data.user.id);
       if (!profile) throw new AuthError("unknown", "Your account isn't set up yet. Try again in a minute.");
+      if (!profile.active) {
+        await supabase.auth.signOut();
+        throw new AuthError("inactive", "This account has been deactivated. Contact the office if you think this is a mistake.");
+      }
       setUser(profile);
       return profile;
     }
@@ -88,9 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName }, emailRedirectTo: `${location.origin}/login` },
+        // consent_version is stored on the profile as the record of the Privacy Notice they agreed to.
+        options: {
+          data: { full_name: fullName, consent_version: PRIVACY_NOTICE_VERSION },
+          emailRedirectTo: `${location.origin}/login`,
+        },
       });
-      if (error) throw new AuthError("unknown", error.message);
+      if (error) throw toAuthError(error);
       return;
     }
     if (findProfileByEmail(email)) throw new AuthError("unknown", "An account with this email already exists. Sign in instead.");
@@ -115,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePassword = useCallback(async (password: string) => {
     if (supabase) {
       const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw new AuthError("unknown", error.message);
+      if (error) throw toAuthError(error);
     }
   }, []);
 
@@ -132,4 +158,4 @@ export function useAuth() {
   return ctx;
 }
 
-export const isAdmin = (p: Profile | null) => p?.role === "admin" || p?.role === "super_admin";
+export const isAdmin = (p: Profile | null) => isOfficeRole(p?.role);
