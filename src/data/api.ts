@@ -7,11 +7,10 @@
 import * as db from "./mock";
 import type {
   Activity,
-  FoundItem,
   Profile,
   Place,
 } from "./types";
-import { ON_SHELF, isOfficeRole, type OfficeRole } from "./types";
+import { isOfficeRole, type OfficeRole } from "./types";
 import { todayIso } from "../lib/format";
 
 // Reference lists and office settings come from the database (src/data/reference.ts).
@@ -76,6 +75,16 @@ export {
   isClaimable,
   type Thread,
 } from "./claims";
+// Office overview (slice 4): src/data/office.ts.
+export {
+  getDashboardCounts,
+  getOfficeReport,
+  computeOfficeReport,
+  listActivity,
+  getProfileStats,
+  type DashboardCounts,
+  type OfficeReport,
+} from "./office";
 export { useDataVersion } from "./events";
 import { emit } from "./events";
 
@@ -95,43 +104,9 @@ function record(kind: Activity["kind"], text: string, subject?: string, href?: s
 
 const delay = <T,>(value: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(value), ms));
 
-/**
- * Strip admin-only fields before anything reaches a student page: ownership evidence, who logged
- * it, where it's shelved, the holding schedule, and the disposal record (staff name and note).
- */
-export const toPublic = ({ privateDetails: _p, loggedBy: _l, shelfTag: _s, holdUntil: _h, disposal: _d, ...item }: FoundItem): FoundItem => item;
-
 // ---- people ------------------------------------------------------------------------
-export const getProfile = (id: string) => db.profiles.find((p) => p.id === id);
 export const findProfileByEmail = (email: string) =>
   db.profiles.find((p) => p.email.toLowerCase() === email.trim().toLowerCase());
-
-// ---- not yet converted: these still use the sample data in mock.ts ---------------------
-const DAY = 86_400_000;
-const isoDay = (iso: string) => new Date(`${iso}T00:00:00+08:00`).getTime();
-const mockHoldEnds = (item: FoundItem) =>
-  item.holdUntil ?? new Date(isoDay(item.foundOn) + db.OFFICE.holdingDays * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-const hasOpenClaim = (itemId: string) =>
-  db.claims.some((c) => c.itemId === itemId && ["pending", "needs_info", "approved"].includes(c.status));
-const mockIsUnclaimed = (item: FoundItem) => item.status === "in_custody" && mockHoldEnds(item) < todayIso() && !hasOpenClaim(item.id);
-
-// ---- profile summary ------------------------------------------------------------------
-export function profileStats(user: Profile) {
-  if (!isOfficeRole(user.role)) {
-    const reports = db.lostReports.filter((r) => r.ownerId === user.id);
-    const claims = db.claims.filter((c) => c.claimantId === user.id);
-    return [
-      { label: "Lost reports", value: reports.length },
-      { label: "Claims filed", value: claims.length },
-      { label: "Items recovered", value: claims.filter((c) => c.status === "completed").length + reports.filter((r) => r.status === "resolved").length },
-    ];
-  }
-  return [
-    { label: "Items you logged", value: db.foundItems.filter((i) => i.loggedBy === user.fullName).length },
-    { label: "Claims needing action", value: db.claims.filter((c) => ["pending", "needs_info", "approved"].includes(c.status)).length },
-    { label: "Items in custody", value: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length },
-  ];
-}
 
 // ---- categories and locations (super admin) -------------------------------------------
 type PlaceKind = "category" | "location";
@@ -186,75 +161,6 @@ export async function setPlaceArchived(k: PlaceKind, name: string, archived: boo
   return delay(true);
 }
 
-// ---- office reports --------------------------------------------------------------------
-export interface OfficeReport {
-  from: string;
-  to: string;
-  logged: number;
-  returned: number;
-  returnRate: number | null;
-  medianDaysToReturn: number | null;
-  lostReports: number;
-  approved: number;
-  rejected: number;
-  disposed: number;
-  weeks: { start: string; logged: number; returned: number }[];
-  topCategories: { name: string; n: number }[];
-  topLocations: { name: string; n: number }[];
-}
-/** Counts for the Reports page. `days` = how far back; omit for all time. In production this is one SQL view. */
-export function officeReport(days?: number): OfficeReport {
-  const to = todayIso();
-  // "All time" starts at the oldest record of any kind, so older lost reports and decisions count too.
-  const manila = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-  const dates = [
-    ...db.foundItems.map((i) => i.foundOn),
-    ...db.lostReports.map((r) => r.lostOn),
-    ...db.claims.flatMap((c) => c.history.map((h) => manila(h.at))),
-  ];
-  const earliest = dates.reduce((m, d) => (d < m ? d : m), to);
-  const from = days ? new Date(isoDay(to) - (days - 1) * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : earliest;
-  const inRange = (d?: string) => !!d && d.slice(0, 10) >= from && d.slice(0, 10) <= to;
-  const logged = db.foundItems.filter((i) => inRange(i.foundOn));
-  const returned = db.foundItems.filter((i) => inRange(i.returnedOn));
-  const spans = returned.map((i) => Math.round((isoDay(i.returnedOn!) - isoDay(i.foundOn)) / DAY)).sort((a, b) => a - b);
-  const median = spans.length ? (spans.length % 2 ? spans[(spans.length - 1) / 2] : (spans[spans.length / 2 - 1] + spans[spans.length / 2]) / 2) : null;
-  const decided = (st: "approved" | "rejected") => db.claims.filter((c) => c.history.some((h) => h.status === st && inRange(new Date(h.at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })))).length;
-  // Weeks start on Monday.
-  const dow = new Date(`${from}T12:00:00+08:00`).getUTCDay();
-  const monday = isoDay(from) - ((dow + 6) % 7) * DAY;
-  const weeks: OfficeReport["weeks"] = [];
-  for (let t = monday; t <= isoDay(to); t += 7 * DAY) {
-    const s = new Date(t).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-    const e = new Date(t + 6 * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-    const w = (d?: string) => !!d && d >= s && d <= e && inRange(d);
-    weeks.push({ start: s, logged: db.foundItems.filter((i) => w(i.foundOn)).length, returned: db.foundItems.filter((i) => w(i.returnedOn)).length });
-  }
-  const top = (key: "category" | "location") => {
-    const m = new Map<string, number>();
-    for (const i of logged) m.set(i[key], (m.get(i[key]) ?? 0) + 1);
-    return [...m].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 5);
-  };
-  return {
-    from,
-    to,
-    logged: logged.length,
-    returned: returned.length,
-    returnRate: logged.length ? Math.round((logged.filter((i) => i.status === "returned").length / logged.length) * 100) : null,
-    medianDaysToReturn: median,
-    lostReports: db.lostReports.filter((r) => inRange(r.lostOn)).length,
-    approved: decided("approved"),
-    rejected: decided("rejected"),
-    disposed: db.foundItems.filter((i) => i.disposal && inRange(new Date(i.disposal.at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }))).length,
-    weeks,
-    topCategories: top("category"),
-    topLocations: top("location"),
-  };
-}
-
-// ---- activity log -------------------------------------------------------------------------
-export const listActivity = () => delay([...db.activity].sort((a, b) => b.at.localeCompare(a.at)));
-
 // ---- admins (super admin only) ------------------------------------------------------
 export const listAdmins = () => delay(db.profiles.filter((p) => isOfficeRole(p.role)));
 export async function inviteAdmin(fullName: string, email: string, role: OfficeRole) {
@@ -273,18 +179,6 @@ export async function setAdminActive(id: string, active: boolean) {
   }
   emit();
   return delay(p);
-}
-
-// ---- dashboard ------------------------------------------------------------------------
-export function dashboardCounts() {
-  return {
-    inCustody: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length,
-    unclaimed: db.foundItems.filter(mockIsUnclaimed).length,
-    // Same rule as the Claim Queue "Needs action" tab: waiting on a decision, a reply, or a release.
-    claimsToAct: db.claims.filter((c) => c.status === "pending" || c.status === "needs_info" || c.status === "approved").length,
-    // Reports, not flags: two students flagging one post is still one post to review.
-    flagged: new Set(db.flaggedPosts.filter((f) => f.visible).map((f) => f.reportId)).size,
-  };
 }
 
 export { todayIso };
