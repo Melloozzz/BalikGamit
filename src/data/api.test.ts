@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
+// Tests for the parts of api.ts that still run on the sample data in mock.ts. Each slice that moves
+// an area to Supabase removes its tests here; the database functions are tested in SQL.
+import { CATEGORIES } from "./mock";
 import {
-  CATEGORIES,
   createClaim,
   dashboardCounts,
   decideClaim,
   flagReport,
-  getFoundItem,
   getMyReport,
   getReport,
   itemFor,
   listAllLostReports,
   listFlaggedPosts,
-  listFoundItems,
   officeReport,
   renamePlace,
   setFlaggedVisible,
@@ -20,23 +20,8 @@ import {
   withdrawClaim,
 } from "./api";
 
-const ADMIN_ONLY = ["privateDetails", "loggedBy", "shelfTag", "holdUntil", "disposal"];
 const answers = ["a unique scratch", "a receipt inside", "library, Tuesday"];
 const questions = ["Q1", "Q2", "Q3"];
-
-describe("student item data", () => {
-  it("never includes admin-only fields, including the disposal record", async () => {
-    const donated = await getFoundItem("BG-0974");
-    expect(donated).not.toBeNull();
-    for (const key of ADMIN_ONLY) expect(donated).not.toHaveProperty(key);
-    for (const item of await listFoundItems()) for (const key of ADMIN_ONLY) expect(item).not.toHaveProperty(key);
-  });
-
-  it("keeps admin-only fields for the office", async () => {
-    const donated = await getFoundItem("BG-0974", { admin: true });
-    expect(donated?.disposal?.by).toBe("Maria Santos");
-  });
-});
 
 describe("getMyReport", () => {
   it("returns a student's own report and nothing for anyone else's", async () => {

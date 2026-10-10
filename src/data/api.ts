@@ -4,7 +4,6 @@
 //   - status changes      -> supabase.rpc(...) database functions (they check allowed transitions)
 //   - AI matching         -> fetch("/api/...") on the Cloudflare Worker
 // In demo mode the functions work on the in-memory sample data in ./mock.ts.
-import { useSyncExternalStore } from "react";
 import * as db from "./mock";
 import type {
   Activity,
@@ -24,34 +23,36 @@ import { ON_SHELF, isOfficeRole, type OfficeRole } from "./types";
 import { todayIso } from "../lib/format";
 import { supabase } from "../lib/supabase";
 
-// Reference lists and office settings. Pages read them from here, never from mock.ts, so this
-// stays the one swap point when they move to the database.
-export { CATEGORIES, LOCATIONS, OFFICE } from "./mock";
+// Reference lists and office settings come from the database (src/data/reference.ts).
+export { CATEGORIES, LOCATIONS, OFFICE } from "./reference";
+// Found items (slice 1): src/data/foundItems.ts.
+export {
+  listFoundItems,
+  getFoundItem,
+  listAllFoundItems,
+  logFoundItem,
+  updateFoundItem,
+  daysHeld,
+  holdEnds,
+  isUnclaimed,
+  listUnclaimed,
+  listDisposed,
+  disposeItem,
+  extendHold,
+  type ItemFilters,
+  type FoundItemInput,
+  type FoundItemPatch,
+} from "./foundItems";
+export { useDataVersion } from "./events";
+import { emit } from "./events";
 
 /** Dropdown options for a record: an archived category or location it already uses stays selectable. */
 export const withCurrent = (list: string[], value: string) => (value && !list.includes(value) ? [...list, value] : list);
 
 /** The Worker checks this token on every /api call. */
 async function authHeaders(): Promise<Record<string, string>> {
-  const token = supabase ? (await supabase.auth.getSession()).data.session?.access_token : undefined;
+  const token = (await supabase.auth.getSession()).data.session?.access_token;
   return token ? { authorization: `Bearer ${token}` } : {};
-}
-
-// ---- tiny change-notification store so pages re-render after a write -------------
-let version = 0;
-const listeners = new Set<() => void>();
-const emit = () => {
-  version++;
-  listeners.forEach((l) => l());
-};
-export function useDataVersion() {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => version,
-  );
 }
 
 // ---- audit trail ------------------------------------------------------------------------
@@ -79,96 +80,14 @@ export const getProfile = (id: string) => db.profiles.find((p) => p.id === id);
 export const findProfileByEmail = (email: string) =>
   db.profiles.find((p) => p.email.toLowerCase() === email.trim().toLowerCase());
 
-// ---- found items (logged by the office) -------------------------------------------
-export interface ItemFilters {
-  q?: string;
-  category?: string;
-  location?: string;
-  since?: string;
-}
-
-export function listFoundItems(f: ItemFilters = {}): Promise<FoundItem[]> {
-  const q = f.q?.trim().toLowerCase();
-  const items = db.foundItems
-    .filter((i) => ON_SHELF.includes(i.status))
-    .filter((i) => !f.category || i.category === f.category)
-    .filter((i) => !f.location || i.location === f.location)
-    .filter((i) => !f.since || i.foundOn >= f.since)
-    .filter((i) => !q || `${i.title} ${i.description} ${i.category} ${i.location}`.toLowerCase().includes(q))
-    .sort((a, b) => b.foundOn.localeCompare(a.foundOn));
-  return delay(items.map(toPublic));
-}
-
-export async function getFoundItem(id: string, opts: { admin?: boolean } = {}) {
-  const item = db.foundItems.find((i) => i.id === id);
-  return delay(item ? (opts.admin ? item : toPublic(item)) : null);
-}
-
-export async function logFoundItem(input: Omit<FoundItem, "id" | "status">) {
-  const next = Math.max(...db.foundItems.map((i) => Number(i.id.slice(3)))) + 1;
-  const item: FoundItem = { ...input, id: `BG-${next}`, status: "in_custody" };
-  db.foundItems.unshift(item);
-  record("logged", `logged ${item.id}`, item.title, `/admin/items/${item.id}`);
-  emit();
-  return delay(item);
-}
-
-/** Office inventory: every found item, admin fields included, newest first. */
-export const listAllFoundItems = () => delay([...db.foundItems].sort((a, b) => b.foundOn.localeCompare(a.foundOn)));
-
-export type FoundItemPatch = Partial<
-  Pick<FoundItem, "title" | "category" | "location" | "locationDetail" | "foundOn" | "description" | "privateDetails" | "photo" | "shelfTag">
->;
-export async function updateFoundItem(id: string, patch: FoundItemPatch) {
-  const item = db.foundItems.find((i) => i.id === id);
-  if (!item) throw new Error("Item not found.");
-  Object.assign(item, patch);
-  record("edited", `edited ${item.id}`, item.title, `/admin/items/${item.id}`);
-  emit();
-  return delay(item);
-}
-
-// ---- holding period -------------------------------------------------------------------
+// ---- not yet converted: these still use the sample data in mock.ts ---------------------
 const DAY = 86_400_000;
 const isoDay = (iso: string) => new Date(`${iso}T00:00:00+08:00`).getTime();
-/** Whole days the office has held this item (until today, or until it left). */
-export function daysHeld(item: FoundItem) {
-  const end = item.returnedOn ? isoDay(item.returnedOn) : item.disposal ? new Date(item.disposal.at).getTime() : isoDay(todayIso());
-  return Math.max(0, Math.round((end - isoDay(item.foundOn)) / DAY));
-}
-/** Last day of the holding period, counting any extension. */
-export function holdEnds(item: FoundItem) {
-  if (item.holdUntil) return item.holdUntil;
-  return new Date(isoDay(item.foundOn) + db.OFFICE.holdingDays * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-}
+const mockHoldEnds = (item: FoundItem) =>
+  item.holdUntil ?? new Date(isoDay(item.foundOn) + db.OFFICE.holdingDays * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 const hasOpenClaim = (itemId: string) =>
   db.claims.some((c) => c.itemId === itemId && ["pending", "needs_info", "approved"].includes(c.status));
-/** In custody, past the holding period, and nobody is claiming it. */
-export const isUnclaimed = (item: FoundItem) => item.status === "in_custody" && holdEnds(item) < todayIso() && !hasOpenClaim(item.id);
-
-export const listUnclaimed = () => delay(db.foundItems.filter(isUnclaimed).sort((a, b) => a.foundOn.localeCompare(b.foundOn)));
-export const listDisposed = () =>
-  delay(db.foundItems.filter((i) => i.disposal).sort((a, b) => b.disposal!.at.localeCompare(a.disposal!.at)));
-
-export async function disposeItem(id: string, method: "donated" | "disposed", note: string) {
-  const item = db.foundItems.find((i) => i.id === id);
-  if (!item) throw new Error("Item not found.");
-  if (!isUnclaimed(item)) throw new Error("This item has an open claim or is still within its holding period.");
-  item.status = method;
-  item.disposal = { method, note, by: actor, at: new Date().toISOString() };
-  record(method, `${method === "donated" ? "donated" : "disposed of"} ${item.id}`, item.title, `/admin/items/${item.id}`);
-  emit();
-  return delay(item);
-}
-
-export async function extendHold(id: string, days: number) {
-  const item = db.foundItems.find((i) => i.id === id);
-  if (!item) throw new Error("Item not found.");
-  item.holdUntil = new Date(isoDay(todayIso()) + days * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-  record("extended", `kept ${item.id} for ${days} more days`, item.title, `/admin/items/${item.id}`);
-  emit();
-  return delay(item);
-}
+const mockIsUnclaimed = (item: FoundItem) => item.status === "in_custody" && mockHoldEnds(item) < todayIso() && !hasOpenClaim(item.id);
 
 // ---- lost reports (posted by students, live immediately) --------------------------
 export const listPublicLostReports = () =>
@@ -669,7 +588,7 @@ export async function setAdminActive(id: string, active: boolean) {
 export function dashboardCounts() {
   return {
     inCustody: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length,
-    unclaimed: db.foundItems.filter(isUnclaimed).length,
+    unclaimed: db.foundItems.filter(mockIsUnclaimed).length,
     // Same rule as the Claim Queue "Needs action" tab: waiting on a decision, a reply, or a release.
     claimsToAct: db.claims.filter((c) => c.status === "pending" || c.status === "needs_info" || c.status === "approved").length,
     // Reports, not flags: two students flagging one post is still one post to review.

@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { isOfficeRole, type Profile } from "../data/types";
-import { findProfileByEmail } from "../data/api";
-import { profiles } from "../data/mock";
+import { loadReference } from "../data/reference";
 import { supabase } from "../lib/supabase";
 import { PASSWORD_RULE, isRtuEmail } from "../lib/validation";
 import { PRIVACY_NOTICE_VERSION } from "../lib/consent";
@@ -14,11 +13,11 @@ interface AuthState {
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  /** Re-read the signed-in profile, e.g. after changing your name in Settings. */
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
-
-const DEMO_KEY = "balikgamit.demoUser";
 
 export class AuthError extends Error {
   constructor(public code: "wrong_domain" | "invalid_credentials" | "inactive" | "weak_password" | "unknown", message: string) {
@@ -36,7 +35,6 @@ function toAuthError(error: { code?: string; message: string }): AuthError {
 }
 
 async function loadProfile(userId: string): Promise<Profile | null> {
-  if (!supabase) return null;
   // `profiles` holds the role; the role is never taken from anything the client sends.
   const { data } = await supabase.from("profiles").select("id, full_name, email, role, is_active, created_at").eq("id", userId).single();
   return data
@@ -51,103 +49,91 @@ async function loadProfile(userId: string): Promise<Profile | null> {
     : null;
 }
 
+/** Profile plus the reference lists (categories and locations need a signed-in user). */
+async function loadSession(userId: string | undefined): Promise<Profile | null> {
+  const [profile] = await Promise.all([userId ? loadProfile(userId) : Promise.resolve(null), loadReference()]);
+  return profile && profile.active ? profile : null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
-      try {
-        const id = localStorage.getItem(DEMO_KEY);
-        setUser(profiles.find((p) => p.id === id) ?? null);
-      } catch {
-        /* storage blocked: start signed out */
-      }
-      setReady(true);
-      return;
-    }
+    let alive = true;
     supabase.auth.getSession().then(async ({ data }) => {
-      setUser(data.session ? await loadProfile(data.session.user.id) : null);
+      const profile = await loadSession(data.session?.user.id);
+      if (!alive) return;
+      setUser(profile);
       setReady(true);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, session) => {
-      setUser(session ? await loadProfile(session.user.id) : null);
+    // Supabase runs this callback while it holds its auth lock, so database calls are deferred
+    // until after it returns; awaiting them inside the callback can hang the client.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION") return;
+      setTimeout(() => {
+        loadSession(session?.user.id).then((p) => alive && setUser(p));
+      }, 0);
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isRtuEmail(email)) throw new AuthError("wrong_domain", "Please sign up with your RTU email address (@rtu.edu.ph).");
-    if (supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data.user) throw new AuthError("invalid_credentials", "Incorrect email or password.");
-      const profile = await loadProfile(data.user.id);
-      if (!profile) throw new AuthError("unknown", "Your account isn't set up yet. Try again in a minute.");
-      if (!profile.active) {
-        await supabase.auth.signOut();
-        throw new AuthError("inactive", "This account has been deactivated. Contact the office if you think this is a mistake.");
-      }
-      setUser(profile);
-      return profile;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) throw new AuthError("invalid_credentials", "Incorrect email or password.");
+    const profile = await loadProfile(data.user.id);
+    if (!profile) throw new AuthError("unknown", "Your account isn't set up yet. Try again in a minute.");
+    if (!profile.active) {
+      await supabase.auth.signOut();
+      throw new AuthError("inactive", "This account has been deactivated. Contact the office if you think this is a mistake.");
     }
-    // Demo mode: any sample account with a password of 8+ characters.
-    const profile = findProfileByEmail(email);
-    if (!profile || !profile.active || password.length < 8)
-      throw new AuthError("invalid_credentials", "Incorrect email or password.");
-    try {
-      localStorage.setItem(DEMO_KEY, profile.id);
-    } catch {
-      /* ignore */
-    }
+    await loadReference();
     setUser(profile);
     return profile;
   }, []);
 
   const signUp = useCallback(async (fullName: string, email: string, password: string) => {
     if (!isRtuEmail(email)) throw new AuthError("wrong_domain", "Please sign up with your RTU email address (@rtu.edu.ph).");
-    if (supabase) {
-      // A database trigger also rejects non-@rtu.edu.ph emails, so this check can't be bypassed.
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        // consent_version is stored on the profile as the record of the Privacy Notice they agreed to.
-        options: {
-          data: { full_name: fullName, consent_version: PRIVACY_NOTICE_VERSION },
-          emailRedirectTo: `${location.origin}/login`,
-        },
-      });
-      if (error) throw toAuthError(error);
-      return;
-    }
-    if (findProfileByEmail(email)) throw new AuthError("unknown", "An account with this email already exists. Sign in instead.");
-    profiles.push({ id: crypto.randomUUID(), fullName, email, role: "student", active: true });
+    // A database trigger also rejects non-@rtu.edu.ph emails, so this check can't be bypassed.
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      // consent_version is stored on the profile as the record of the Privacy Notice they agreed to.
+      options: {
+        data: { full_name: fullName, consent_version: PRIVACY_NOTICE_VERSION },
+        emailRedirectTo: `${location.origin}/login`,
+      },
+    });
+    if (error) throw toAuthError(error);
   }, []);
 
   const signOut = useCallback(async () => {
-    if (supabase) await supabase.auth.signOut();
-    try {
-      localStorage.removeItem(DEMO_KEY);
-    } catch {
-      /* ignore */
-    }
+    await supabase.auth.signOut();
     setUser(null);
   }, []);
 
   const requestPasswordReset = useCallback(async (email: string) => {
     // Always succeeds from the user's point of view, so the page never reveals whether an account exists.
-    if (supabase) await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
   }, []);
 
   const updatePassword = useCallback(async (password: string) => {
-    if (supabase) {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw toAuthError(error);
-    }
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw toAuthError(error);
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) setUser(await loadProfile(data.session.user.id));
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword }),
-    [user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword],
+    () => ({ user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile }),
+    [user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

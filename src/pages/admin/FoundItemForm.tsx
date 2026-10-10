@@ -15,7 +15,8 @@ export const EMPTY_ITEM = {
   description: "",
   privateDetails: "",
 };
-export type ItemFormValues = typeof EMPTY_ITEM & { photo?: string };
+/** `photo` is what the form shows (current photo or a preview); `photoFile` is a newly chosen file to upload. */
+export type ItemFormValues = typeof EMPTY_ITEM & { photo?: string; photoFile?: File };
 
 /** The office's found-item form, shared by Log found item and Edit found item. */
 export function FoundItemForm({
@@ -71,15 +72,15 @@ export function FoundItemForm({
         <label className="dropzone dropzone--small">
           <input
             type="file"
-            accept="image/jpeg"
+            accept="image/jpeg,image/png,image/webp"
             className="sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) setForm((v) => ({ ...v, photo: URL.createObjectURL(f) }));
+              if (f) setForm((v) => ({ ...v, photo: URL.createObjectURL(f), photoFile: f }));
             }}
           />
           {form.photo ? <img src={form.photo} alt="Selected item photo" className="dropzone__preview" /> : <Icon name="upload" size={24} />}
-          <span>{form.photo ? "Choose another photo" : "Choose a photo (JPEG, up to 2 MB)"}</span>
+          <span>{form.photo ? "Choose another photo" : "Choose a photo (JPEG, PNG or WebP). Location data is removed before upload."}</span>
         </label>
       </div>
       <TextAreaField

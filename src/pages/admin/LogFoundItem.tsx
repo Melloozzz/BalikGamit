@@ -2,11 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { BackButton, Alert, PageHead } from "../../components/ui";
 import { logFoundItem } from "../../data/api";
-import { useAuth } from "../../auth/AuthContext";
 import { EMPTY_ITEM, FoundItemForm } from "./FoundItemForm";
 
 export function LogFoundItem() {
-  const { user } = useAuth();
   const [savedId, setSavedId] = useState("");
 
   return (
@@ -22,9 +20,9 @@ export function LogFoundItem() {
       <FoundItemForm
         initial={EMPTY_ITEM}
         submitLabel="Save item record"
-        onSubmit={async ({ locationDetail, shelfTag, ...v }) => {
-          // Production: this insert also queues AI matching against open lost reports in the Worker.
-          const item = await logFoundItem({ ...v, locationDetail: locationDetail || undefined, shelfTag: shelfTag || undefined, loggedBy: user?.fullName });
+        onSubmit={async ({ photo: _preview, ...v }) => {
+          // The database records who logged it and queues AI matching against open lost reports.
+          const item = await logFoundItem(v);
           setSavedId(item.id);
         }}
       />
