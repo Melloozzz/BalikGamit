@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useAuth } from "../../auth/AuthContext";
-import { itemFor, listMyClaims, listMyReports } from "../../data/api";
+import { listMyClaims, listMyReports } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
@@ -15,8 +15,7 @@ export function AttentionStrip() {
 
   const cards: Card[] = [];
   for (const c of claims) {
-    const item = itemFor(c.itemId);
-    if (!item) continue;
+    const item = c.item;
     if (c.status === "needs_info")
       cards.push({ key: c.id, to: `/claims/${c.id}`, tone: "amber", eyebrow: "REPLY NEEDED", title: item.title, text: `The office asked about claim ${c.id}` });
     if (c.status === "approved")

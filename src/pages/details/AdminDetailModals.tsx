@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Modal, ModalLink } from "../../components/Modal";
 import { Alert, CategoryPill, ClaimBadge, ItemBadge, ItemPhoto, LikelihoodBadge, Loading, ReportBadge } from "../../components/ui";
-import { getFoundItem, getMatches, getProfile, getReport, listClaimsForItem, setReportStatus } from "../../data/api";
+import { getFoundItem, getMatches, getReport, listClaimsForItem, setReportStatus } from "../../data/api";
 import { longDate, shortDate } from "../../lib/format";
 import { ON_SHELF } from "../../data/types";
 import { useLoad } from "../../lib/useLoad";
@@ -83,7 +83,7 @@ export function AdminFoundItemModal() {
                 <li key={c.id}>
                   <Link to={c.status === "approved" ? `/admin/claims/${c.id}/release` : `/admin/claims/${c.id}`} className="mini-row">
                     <span className="mini-row__main">
-                      <strong>{getProfile(c.claimantId)?.fullName}</strong>
+                      <strong>{c.claimant?.fullName}</strong>
                       <small>
                         {c.id} · filed {shortDate(c.filedOn)}
                       </small>

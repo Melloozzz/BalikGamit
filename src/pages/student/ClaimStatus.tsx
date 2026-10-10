@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { Icon } from "../../components/Icon";
-import { BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading } from "../../components/ui";
+import { Alert, BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading } from "../../components/ui";
 import { MessageThread } from "../../components/MessageThread";
-import { OFFICE, getClaim, itemFor, withdrawClaim } from "../../data/api";
+import { OFFICE, getClaim, withdrawClaim } from "../../data/api";
 import type { Claim } from "../../data/types";
 import { longDate, longDateTime } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
@@ -43,6 +43,7 @@ export function ClaimStatusPage() {
   const { claimId = "" } = useParams();
   const claim = useLoad(() => getClaim(claimId), [claimId]);
   const [confirming, setConfirming] = useState(false);
+  const [withdrawError, setWithdrawError] = useState("");
 
   if (claim === undefined) return <Loading />;
   if (claim === null)
@@ -52,7 +53,7 @@ export function ClaimStatusPage() {
         <EmptyState title="We couldn't find that claim." />
       </div>
     );
-  const item = itemFor(claim.itemId)!;
+  const item = claim.item;
   const open = claim.status === "pending" || claim.status === "needs_info";
   const threadOpen = open || claim.status === "approved";
 
@@ -81,7 +82,7 @@ export function ClaimStatusPage() {
             (confirming ? (
               <span className="confirm-inline">
                 Withdraw this claim?
-                <button className="link-btn link-btn--danger" onClick={() => withdrawClaim(claim.id)}>
+                <button className="link-btn link-btn--danger" onClick={() => withdrawClaim(claim.id).catch((e: Error) => setWithdrawError(e.message))}>
                   Yes, withdraw
                 </button>
                 <button className="link-btn" onClick={() => setConfirming(false)}>
@@ -96,6 +97,7 @@ export function ClaimStatusPage() {
         </div>
       </section>
 
+      {withdrawError && <Alert>{withdrawError}</Alert>}
       <div className="two-col">
         <section className="panel" aria-labelledby="prog-h">
           <h2 id="prog-h" className="panel__title">
@@ -114,7 +116,7 @@ export function ClaimStatusPage() {
           </ol>
           <p className="note-box">
             {claim.status === "approved"
-              ? `Pick up the item at ${OFFICE.name} by ${longDate(claim.pickupBy!)}. Bring your RTU ID.`
+              ? `Pick up the item at ${claim.pickupOffice ?? OFFICE.name} by ${longDate(claim.pickupBy!)}. Bring your RTU ID.`
               : `If your claim is approved, pick up the item at ${OFFICE.name} within ${OFFICE.pickupDays} working days. Bring your RTU ID.`}
           </p>
         </section>

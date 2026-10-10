@@ -2,17 +2,17 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Alert, BackLink, ItemBadge, ItemPhoto, Loading } from "../../components/ui";
-import { confirmRelease, getClaim, getProfile, itemFor, returnToCustody } from "../../data/api";
+import { confirmRelease, getClaim, returnToCustody } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 export function ReleaseItem() {
   const { claimId = "" } = useParams();
-  const claim = useLoad(() => getClaim(claimId), [claimId]);
+  const claim = useLoad(() => getClaim(claimId, { office: true }), [claimId]);
   const [checks, setChecks] = useState({ id: false, item: false });
   if (!claim) return <Loading />;
-  const item = itemFor(claim.itemId)!;
-  const who = getProfile(claim.claimantId);
+  const item = claim.item;
+  const who = claim.claimant;
 
   if (claim.status !== "approved")
     return (

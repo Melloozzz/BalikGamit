@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 import { BackButton, ClaimBadge, EmptyState, ItemPhoto, Loading, PageHead } from "../../components/ui";
-import { getProfile, itemFor, listAllClaims } from "../../data/api";
+import { listAllClaims } from "../../data/api";
 import { shortDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
@@ -43,8 +43,8 @@ export function ClaimQueue() {
             </thead>
             <tbody>
               {shown.map((c) => {
-                const item = itemFor(c.itemId)!;
-                const who = getProfile(c.claimantId);
+                const item = c.item;
+                const who = c.claimant;
                 const to = c.status === "approved" ? `/admin/claims/${c.id}/release` : `/admin/claims/${c.id}`;
                 return (
                   <tr key={c.id}>

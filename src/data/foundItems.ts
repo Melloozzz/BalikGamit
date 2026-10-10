@@ -9,7 +9,7 @@ import { idOf, manilaDate, must, one, remember } from "./db";
 import { removePhotos, signedUrls, uploadPhoto } from "./photos";
 import { emit } from "./events";
 
-const PUBLIC_COLS = "id, ref, title, description, date_found, status, photo_paths, category_id, location_id, location_detail";
+export const PUBLIC_COLS = "id, ref, title, description, date_found, status, photo_paths, category_id, location_id, location_detail";
 const OFFICE_COLS = `${PUBLIC_COLS}, hold_until, disposal_note, closed_at, is_hidden,
   logger:profiles!found_items_logged_by_fkey(full_name),
   disposer:profiles!found_items_disposed_by_fkey(full_name),
