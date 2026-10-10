@@ -19,7 +19,7 @@ export async function emailUnreadMessages(env: Env): Promise<number> {
   // Unread for at least 10 minutes: the person hasn't seen it in the app.
   const pending = await rest<Note[]>(
     env,
-    `notifications?type=eq.new_message&is_read=eq.false&emailed_at=is.null&created_at=lte.${encodeURIComponent(tenMinAgo)}&select=id,user_id,link,created_at&limit=200`,
+    `notifications?type=eq.new_message&is_read=eq.false&emailed_at=is.null&created_at=lte.${encodeURIComponent(tenMinAgo)}&select=id,user_id,link,created_at&order=created_at.asc&limit=200`,
   );
   if (!pending.length) return 0;
   const recent = await rest<{ user_id: string; link: string | null }[]>(
@@ -38,31 +38,41 @@ export async function emailUnreadMessages(env: Env): Promise<number> {
   const people = await rest<{ id: string; email: string; is_active: boolean }[]>(env, `profiles?id=in.(${ids.join(",")})&select=id,email,is_active`);
   const emailOf = new Map(people.filter((p) => p.is_active).map((p) => [p.id, p.email]));
 
+  // Each email is about two requests; the cron run shares a 50-subrequest budget with the AI jobs.
+  const MAX_PER_RUN = 5;
   let sent = 0;
-  for (const [key, notes] of groups) {
-    const to = emailOf.get(notes[0].user_id);
-    const done = notes.map((n) => n.id);
-    if (to && !sentThisHour.has(key)) {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-        body: JSON.stringify({
-          from: env.EMAIL_FROM,
-          to,
-          subject: "You have a new message on BalikGamit",
-          // No message text in the email: messages stay inside the app (proposal: claim-scoped messaging).
-          text: `You have ${notes.length === 1 ? "a new message" : `${notes.length} new messages`} about a claim on BalikGamit.\n\nSign in to read and reply.`,
-        }),
-      });
-      if (!res.ok) continue; // try again next run
-      sent++;
-    }
-    // Marked either way, so a thread already emailed this hour isn't emailed again for these messages.
-    await rest(env, `notifications?id=in.(${done.join(",")})`, {
+  const stamp = (ids: number[]) =>
+    rest(env, `notifications?id=in.(${ids.join(",")})`, {
       method: "PATCH",
       headers: { prefer: "return=minimal" },
       body: JSON.stringify({ emailed_at: new Date().toISOString() }),
     });
+  for (const [key, notes] of groups) {
+    if (sent >= MAX_PER_RUN) break;
+    // Already emailed about this thread within the hour: leave these for a later run, so they're
+    // still covered by the next email if they stay unread.
+    if (sentThisHour.has(key)) continue;
+    const to = emailOf.get(notes[0].user_id);
+    const noteIds = notes.map((n) => n.id);
+    // No one to email (deactivated account): mark them so they aren't picked up every run.
+    if (!to) {
+      await stamp(noteIds);
+      continue;
+    }
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        from: env.EMAIL_FROM,
+        to,
+        subject: "You have a new message on BalikGamit",
+        // No message text in the email: messages stay inside the app (proposal: claim-scoped messaging).
+        text: `You have ${notes.length === 1 ? "a new message" : `${notes.length} new messages`} about a claim on BalikGamit.\n\nSign in to read and reply.`,
+      }),
+    });
+    if (!res.ok) continue; // not marked: tried again next run
+    await stamp(noteIds);
+    sent++;
   }
   return sent;
 }

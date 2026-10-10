@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
-import { BackButton, CategoryPill, EmptyState, Loading, PageHead, ReportBadge } from "../../components/ui";
+import { Alert, BackButton, CategoryPill, EmptyState, Loading, PageHead, ReportBadge } from "../../components/ui";
 import { listMyReports, setReportStatus } from "../../data/api";
 import type { LostReport } from "../../data/types";
 import { useAuth } from "../../auth/AuthContext";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
+import { useAction } from "../../lib/useAction";
 
 const TABS = [
   { key: "all", label: "All", test: () => true },
@@ -19,6 +20,7 @@ export function MyReports() {
   const { user } = useAuth();
   const reports = useLoad(() => listMyReports(user!.id), [user?.id]);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("all");
+  const action = useAction();
   if (!reports) return <Loading />;
   const shown = reports.filter(TABS.find((t) => t.key === tab)!.test);
 
@@ -34,6 +36,7 @@ export function MyReports() {
           </Link>
         }
       />
+      {action.error && <Alert>{action.error}</Alert>}
       <div className="tabs" role="tablist" aria-label="Filter reports">
         {TABS.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} className={`tab ${tab === t.key ? "is-active" : ""}`} onClick={() => setTab(t.key)}>
@@ -64,7 +67,7 @@ export function MyReports() {
                 </p>
               </div>
               <div className="report-card__side">
-                <ReportActions r={r} />
+                <ReportActions r={r} action={action} />
               </div>
             </li>
           ))}
@@ -74,7 +77,7 @@ export function MyReports() {
   );
 }
 
-function ReportActions({ r }: { r: LostReport }) {
+function ReportActions({ r, action }: { r: LostReport; action: ReturnType<typeof useAction> }) {
   if (r.status === "active")
     return (
       <>
@@ -94,7 +97,7 @@ function ReportActions({ r }: { r: LostReport }) {
           <Link to={`/report?edit=${r.id}`} state={{ from: "/reports" }} className="btn btn--outline btn--sm">
             Edit
           </Link>
-          <button className="link-btn" onClick={() => setReportStatus(r.id, "resolved")}>
+          <button className="link-btn" disabled={action.busy} onClick={() => action.run(() => setReportStatus(r.id, "resolved"))}>
             I found it myself
           </button>
         </div>
@@ -104,7 +107,7 @@ function ReportActions({ r }: { r: LostReport }) {
     return (
       <>
         <p className="side-note">{r.statusNote}</p>
-        <button className="btn btn--navy btn--block" onClick={() => setReportStatus(r.id, "active")}>
+        <button className="btn btn--navy btn--block" disabled={action.busy} onClick={() => action.run(() => setReportStatus(r.id, "active"))}>
           Renew report
         </button>
       </>

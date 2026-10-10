@@ -108,6 +108,12 @@ export async function rankCandidates(env: { GROQ_API_KEY: string; GROQ_MODEL: st
   }));
   const parsed = (await chat(env, RANK, { lost: redact(lostText), candidates: publicOnly })) as { ranked?: Ranked[] };
   const ids = new Set(candidates.map((c) => c.id));
-  // Drop anything the model made up.
-  return (parsed.ranked ?? []).filter((r) => ids.has(r.id) && ["high", "medium", "low"].includes(r.likelihood));
+  // Drop anything the model made up, and repeats (one row per item in match_suggestions).
+  const seen = new Set<string>();
+  const ranked = Array.isArray(parsed.ranked) ? parsed.ranked : [];
+  return ranked.filter((r) => {
+    if (!r || !ids.has(r.id) || seen.has(r.id) || !["high", "medium", "low"].includes(r.likelihood)) return false;
+    seen.add(r.id);
+    return true;
+  }).map((r) => ({ id: r.id, likelihood: r.likelihood, why: String(r.why ?? "").slice(0, 300), but: r.but ? String(r.but).slice(0, 300) : undefined }));
 }

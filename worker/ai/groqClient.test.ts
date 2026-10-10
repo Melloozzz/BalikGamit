@@ -30,6 +30,26 @@ describe("rankCandidates", () => {
     expect(out.map((r) => r.id)).toEqual(["BG-1048"]);
   });
 
+  it("keeps only the first entry when the model repeats an item", async () => {
+    mockGroq(200, {
+      ranked: [
+        { id: "BG-1048", likelihood: "high", why: "same color" },
+        { id: "BG-1048", likelihood: "low", why: "again" },
+        { id: "BG-1053", likelihood: "medium", why: "similar" },
+      ],
+    });
+    const out = await rankCandidates(env, "navy umbrella", candidates);
+    expect(out.map((r) => [r.id, r.likelihood])).toEqual([
+      ["BG-1048", "high"],
+      ["BG-1053", "medium"],
+    ]);
+  });
+
+  it("survives a malformed response", async () => {
+    mockGroq(200, { ranked: "none" });
+    expect(await rankCandidates(env, "navy umbrella", candidates)).toEqual([]);
+  });
+
   it("never sends private details, even if the caller passes them", async () => {
     const fetchMock = mockGroq(200, { ranked: [] });
     const leaky = candidates.map((c) => ({ ...c, privateDetails: "initials A.R. inside", shelfTag: "B-03" }));

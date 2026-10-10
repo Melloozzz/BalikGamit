@@ -4,7 +4,7 @@
 import { supabase } from "../lib/supabase";
 import type { FlaggedPost, FlagReason, LostReport, LostReportStatus, Match } from "./types";
 import { OFFICE, categoryId, categoryName, locationId, locationName } from "./reference";
-import { idOf, must, one, remember } from "./db";
+import { idOf, keyColumn, must, one, remember } from "./db";
 import { removePhotos, signedUrls, uploadPhoto } from "./photos";
 import { toFoundItems } from "./foundItems";
 import { emit } from "./events";
@@ -90,7 +90,7 @@ export async function listMyReports(userId: string): Promise<LostReport[]> {
 
 /** One of the student's own reports, or null (also for someone else's, so ownership isn't revealed). */
 export async function getMyReport(userId: string, ref: string): Promise<LostReport | null> {
-  const row = must(await supabase.from("lost_reports").select(OWNER_COLS).eq("ref", ref).eq("reporter_id", userId).maybeSingle()) as Row | null;
+  const row = must(await supabase.from("lost_reports").select(OWNER_COLS).eq(keyColumn(ref), ref).eq("reporter_id", userId).maybeSingle()) as Row | null;
   return row ? (await toReports([row], true))[0] : null;
 }
 
@@ -225,7 +225,7 @@ export async function listAllLostReports(): Promise<OfficeLostReport[]> {
 
 /** Office: any report, private details and owner included. */
 export async function getReport(ref: string): Promise<OfficeLostReport | null> {
-  const row = must(await supabase.from("lost_reports").select(OFFICE_COLS).eq("ref", ref).maybeSingle()) as Row | null;
+  const row = must(await supabase.from("lost_reports").select(OFFICE_COLS).eq(keyColumn(ref), ref).maybeSingle()) as Row | null;
   if (!row) return null;
   const [rep] = await toReports([row], true);
   const o = one(row.owner);

@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { todayIso } from "../lib/format";
 import { ON_SHELF, type FoundItem, type FoundItemStatus } from "./types";
 import { OFFICE, categoryId, categoryName, locationId, locationName } from "./reference";
-import { idOf, manilaDate, must, one, remember } from "./db";
+import { idOf, keyColumn, manilaDate, must, one, remember } from "./db";
 import { removePhotos, signedUrls, uploadPhoto } from "./photos";
 import { emit } from "./events";
 import { kickMatching } from "./worker";
@@ -99,7 +99,7 @@ export async function listFoundItems(f: ItemFilters = {}): Promise<FoundItem[]> 
 
 /** One item by reference number. Students get public fields only; `admin` adds the office fields. */
 export async function getFoundItem(ref: string, opts: { admin?: boolean } = {}): Promise<FoundItem | null> {
-  const row = must(await supabase.from("found_items").select(opts.admin ? OFFICE_COLS : PUBLIC_COLS).eq("ref", ref).maybeSingle()) as Row | null;
+  const row = must(await supabase.from("found_items").select(opts.admin ? OFFICE_COLS : PUBLIC_COLS).eq(keyColumn(ref), ref).maybeSingle()) as Row | null;
   if (!row) return null;
   return (await toFoundItems([row], !!opts.admin))[0];
 }

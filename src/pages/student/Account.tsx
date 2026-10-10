@@ -9,14 +9,15 @@ import { useLoad } from "../../lib/useLoad";
 export function Account() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const reports = useLoad(() => listMyReports(user!.id), [user?.id]);
+  const reports = useLoad(() => (user ? listMyReports(user.id) : Promise.resolve([])), [user?.id]);
+  // Hooks stay above the early return. The layout's live subscription refreshes this count.
+  const unread = useLoad(() => unreadCount(), []) ?? 0;
   if (!user || !reports) return <Loading />;
   const initials = user.fullName
     .split(" ")
     .map((w) => w[0])
     .slice(0, 2)
     .join("");
-  const unread = useLoad(() => unreadCount(), []) ?? 0;
 
   const Row = ({ to, icon, label, count, badge }: { to: string; icon: IconName; label: string; count?: number; badge?: number }) => (
     <Link to={to} className="account__row">
