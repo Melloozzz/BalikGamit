@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "../../components/Icon";
 import { Alert, BackButton, PageHead } from "../../components/ui";
-import { addPlace, listPlaces, renamePlace, setPlaceArchived, useDataVersion } from "../../data/api";
+import { addPlace, listPlaces, renamePlace, setPlaceArchived } from "../../data/api";
+import { useLoad } from "../../lib/useLoad";
 
 type Kind = "category" | "location";
 
 /** Super admin: the lists behind every category and location dropdown. */
 export function Places() {
-  useDataVersion();
   return (
     <div className="container stack-lg">
       <BackButton fallback="/admin/settings" />
@@ -25,7 +25,7 @@ export function Places() {
 }
 
 function PlacePanel({ kind, title, sub }: { kind: Kind; title: string; sub: string }) {
-  const rows = listPlaces(kind);
+  const rows = useLoad(() => listPlaces(kind), [kind]) ?? [];
   const [name, setName] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");

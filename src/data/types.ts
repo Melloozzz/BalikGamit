@@ -1,5 +1,5 @@
 // Domain types. Status values mirror the workflow in the project plan and the
-// database enums, so swapping the mock data layer for Supabase changes no UI code.
+// database enums (see supabase/migrations). The data layer maps database rows to these.
 
 /** Faculty and staff use BalikGamit the same way students do; only the office roles see admin pages. */
 export type Role = "student" | "faculty" | "staff" | "admin" | "super_admin";

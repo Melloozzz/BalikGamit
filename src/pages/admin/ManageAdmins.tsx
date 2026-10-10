@@ -17,9 +17,12 @@ export function ManageAdmins() {
     if (form.name.trim().length < 2) return setMsg({ tone: "error", text: "Enter the admin's full name." });
     if (!isRtuEmail(form.email)) return setMsg({ tone: "error", text: "Use an @rtu.edu.ph email address." });
     try {
-      // Production: Worker route /api/admins (service key) creates the invite; the browser can't grant roles.
-      await inviteAdmin(form.name.trim(), form.email.trim(), form.role === "Super admin" ? "super_admin" : "admin");
-      setMsg({ tone: "success", text: `Invite sent to ${form.email.trim()}.` });
+      // Existing account: the role changes now. New person: the Worker emails an invite (it holds the service key).
+      const how = await inviteAdmin(form.name.trim(), form.email.trim(), form.role === "Super admin" ? "super_admin" : "admin");
+      setMsg({
+        tone: "success",
+        text: how === "promoted" ? `${form.email.trim()} already had an account. Their role is updated.` : `Invite sent to ${form.email.trim()}.`,
+      });
       setForm({ name: "", email: "", role: "Admin" });
     } catch (err) {
       setMsg({ tone: "error", text: (err as Error).message });
@@ -60,7 +63,10 @@ export function ManageAdmins() {
                     {a.id === user?.id ? (
                       <small className="muted">You</small>
                     ) : (
-                      <button className={`link-btn ${a.active ? "link-btn--danger" : ""}`} onClick={() => setAdminActive(a.id, !a.active)}>
+                      <button
+                        className={`link-btn ${a.active ? "link-btn--danger" : ""}`}
+                        onClick={() => setAdminActive(a.id, !a.active).catch((err: Error) => setMsg({ tone: "error", text: err.message }))}
+                      >
                         {a.active ? "Deactivate" : "Reactivate"}
                       </button>
                     )}
@@ -77,7 +83,10 @@ export function ManageAdmins() {
           <TextField label="RTU email" type="email" placeholder="name@rtu.edu.ph" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <SelectField label="Role" placeholder="Choose a role" options={["Admin", "Super admin"]} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
           <button className="btn btn--blue btn--block btn--lg">Send invite</button>
-          <p className="field__hint">They get an email to set a password. Admins can't change their own role.</p>
+          <p className="field__hint">
+            If they already have a BalikGamit account, they get the role right away. Otherwise they get an email to set a password. Nobody can change
+            their own role.
+          </p>
         </form>
       </div>
     </div>
