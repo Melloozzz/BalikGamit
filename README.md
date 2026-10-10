@@ -17,21 +17,22 @@ The app needs the Supabase settings: copy `.env.example` to `.env.local` and fil
 
 To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both values, then run `npm run worker:dev` (port 8787). `vite` proxies `/api` to it.
 
-## What is real and what is mocked
+## What is done and what is not
 
 | Part | State |
 |---|---|
 | All routes, layouts, forms, validation, status flows | Done. |
 | Item details (found and lost, student and admin) | Popups. Opened from a list, they sit over that page. Opened from a direct link, they sit over All found items or All lost items (students), or the office Found items / Lost reports lists. |
-| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Found items, Edit found item, Unclaimed: on the database. The rest still on sample data. In the database, the activity log is written by triggers (`admin_activity`), so entries can't be faked. Holding period and other office numbers live in `office_settings`. |
+| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | On the database. The activity log is written by triggers (`admin_activity`), so entries can't be faked. Holding period and other office numbers live in `office_settings`. |
 | Students can report a lost-report post | On the database (`flags`). One flag per student per post, never on your own post; the office gets a notification. |
 | Auth (sign in/up, RTU-only domain, verify, reset) | Supabase Auth. Sign-up records which Privacy Notice version the user agreed to (`src/lib/consent.ts`). Deactivated accounts can't sign in. |
-| Data reads and writes (`src/data/api.ts`) | Moving to Supabase area by area. **Done:** reference lists and office settings (`reference.ts`), found items (`foundItems.ts`), lost reports, matches and flags (`lostReports.ts`), claims, messages and notifications with live updates (`claims.ts`). dashboard, Reports page, activity log and profile stats (`office.ts`). **Still on sample data (`mock.ts`):** super admin pages (categories & locations, office accounts). |
+| Data reads and writes (`src/data/api.ts`) | All on Supabase: reference lists and office settings (`reference.ts`), found items (`foundItems.ts`), lost reports, matches and flags (`lostReports.ts`), claims, messages and notifications with live updates (`claims.ts`), dashboard, reports, activity log and profile stats (`office.ts`), categories & locations, office accounts and settings (`admin.ts`). There is no sample data. |
 | Match list (`GET /api/reports/:id/matches`) | Worker route is written. The app falls back to local word overlap if the Worker is not running. |
 | Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler that calls `rankCandidates` (`worker/ai/groqClient.ts`), which is written and tested but not called anywhere yet. |
 | Expiry (90-day reports, 5-day pickup) and reminders | The database functions exist (`run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders`). **The Worker cron still calls the old names** and must be updated. Until then nothing expires. |
 | Photo upload | Found items: uploaded to the private `found-photos` bucket, re-encoded in the browser so location data is removed (`photos.ts`). Lost reports: same, into the private `lost-photos` bucket under the student's own folder. |
-| Email notifications | Toggles only. No sender yet. |
+| Email notifications | Toggles only (not saved). No sender yet. |
+| Office invites, account deletion | Call the Worker (`/api/admin/invite`, `/api/account`), which holds the service key. An existing account can be given an office role without the Worker. |
 
 ## Database
 
@@ -86,7 +87,7 @@ Status values in `src/data/types.ts` match the database enums. Lost reports have
 src/
   auth/        AuthContext (Supabase Auth + reference lists)
   components/  Brand, Icon, ui primitives, MessageThread, Footer, Modal, ProfileMenu
-  data/        types.ts, mock.ts, api.ts (swap point)
+  data/        types.ts, api.ts (what pages import) and one module per area (foundItems, lostReports, claims, office, admin, reference, photos)
   layouts/     Auth, Marketing, Student, Admin, Drawer
   lib/         validation (zod), format (Asia/Manila), supabase, useLoad
   pages/       public/ auth/ student/ admin/ shared/ (inbox, profile) details/ (item popups)
@@ -111,4 +112,4 @@ These were deliberate fixes for errors in the mockups:
 - Dashboard "Pending Claims" counted differently from the queue's "Needs action" tab. Both now use one rule (pending, needs info, approved and awaiting release), and the card is labelled "Claims needing action".
 - On phones, admin tables become stacked rows instead of scrolling sideways.
 
-Placeholders still to fill: `[Office name, Building]` in `src/data/mock.ts`, and `[email]` / `[date]` in the Privacy Notice.
+Placeholders still to fill: the office name (`office_settings` in the database), and `[email]` / `[date]` in the Privacy Notice.

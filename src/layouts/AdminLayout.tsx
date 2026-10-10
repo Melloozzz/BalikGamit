@@ -6,7 +6,6 @@ import { Drawer, type NavItem } from "./Drawer";
 import { useAuth } from "../auth/AuthContext";
 import { ProfileMenu } from "../components/ProfileMenu";
 import { NotificationMenu } from "../components/NotificationMenu";
-import { setActor } from "../data/api";
 import { useUnread } from "../lib/useUnread";
 
 export function AdminLayout() {
@@ -15,8 +14,6 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const isSuper = user?.role === "super_admin";
   const unread = useUnread(user?.id);
-  // Demo mode: label audit-trail rows with the signed-in staff member (a database trigger does this in production).
-  if (user) setActor(user.fullName);
 
   const nav: NavItem[] = [
     { to: "/admin", label: "Dashboard", icon: "dashboard", end: true },
