@@ -9,19 +9,14 @@ import type {
   Activity,
   Claim,
   ClaimStatus,
-  FlaggedPost,
   FoundItem,
-  LostReport,
-  Match,
   Message,
   Notification,
   Profile,
-  FlagReason,
   Place,
 } from "./types";
 import { ON_SHELF, isOfficeRole, type OfficeRole } from "./types";
 import { todayIso } from "../lib/format";
-import { supabase } from "../lib/supabase";
 
 // Reference lists and office settings come from the database (src/data/reference.ts).
 export { CATEGORIES, LOCATIONS, OFFICE } from "./reference";
@@ -43,17 +38,30 @@ export {
   type FoundItemInput,
   type FoundItemPatch,
 } from "./foundItems";
+// Lost reports, matches and moderation (slice 2): src/data/lostReports.ts.
+export {
+  listPublicLostReports,
+  getPublicLostReport,
+  listMyReports,
+  getMyReport,
+  createReport,
+  updateReport,
+  setReportStatus,
+  getMatches,
+  listAllLostReports,
+  getReport,
+  countFlaggedReports,
+  flagReport,
+  listFlaggedPosts,
+  setFlaggedVisible,
+  type ReportInput,
+  type OfficeLostReport,
+} from "./lostReports";
 export { useDataVersion } from "./events";
 import { emit } from "./events";
 
 /** Dropdown options for a record: an archived category or location it already uses stays selectable. */
 export const withCurrent = (list: string[], value: string) => (value && !list.includes(value) ? [...list, value] : list);
-
-/** The Worker checks this token on every /api call. */
-async function authHeaders(): Promise<Record<string, string>> {
-  const token = (await supabase.auth.getSession()).data.session?.access_token;
-  return token ? { authorization: `Bearer ${token}` } : {};
-}
 
 // ---- audit trail ------------------------------------------------------------------------
 // Demo mode records the signed-in staff name here. In production a database trigger writes the
@@ -88,90 +96,6 @@ const mockHoldEnds = (item: FoundItem) =>
 const hasOpenClaim = (itemId: string) =>
   db.claims.some((c) => c.itemId === itemId && ["pending", "needs_info", "approved"].includes(c.status));
 const mockIsUnclaimed = (item: FoundItem) => item.status === "in_custody" && mockHoldEnds(item) < todayIso() && !hasOpenClaim(item.id);
-
-// ---- lost reports (posted by students, live immediately) --------------------------
-export const listPublicLostReports = () =>
-  delay(db.lostReports.filter((r) => r.status === "active").map(({ privateDetails: _p, ...r }) => r));
-
-export const listMyReports = (userId: string) => delay(db.lostReports.filter((r) => r.ownerId === userId));
-
-/** Lost report as other students see it: no private details, no owner identity. */
-export async function getPublicLostReport(id: string, viewerId?: string) {
-  const r = db.lostReports.find((x) => x.id === id && x.status === "active");
-  if (!r) return delay(null);
-  const { privateDetails: _p, ownerId, ...pub } = r;
-  return delay({ ...pub, mine: ownerId === viewerId });
-}
-
-/** Office view of every lost report, with the owner's name and email. */
-export const listAllLostReports = () =>
-  delay(
-    [...db.lostReports]
-      .sort((a, b) => b.lostOn.localeCompare(a.lostOn))
-      .map((r) => ({ ...r, owner: getProfile(r.ownerId), flags: db.flaggedPosts.filter((f) => f.reportId === r.id).length })),
-  );
-
-/** Office: any report, private details included. */
-export const getReport = (id: string) => delay(db.lostReports.find((r) => r.id === id) ?? null);
-
-/** Student: one of their own reports, or null (also for someone else's, so ownership isn't revealed). */
-export const getMyReport = (userId: string, id: string) => delay(db.lostReports.find((r) => r.id === id && r.ownerId === userId) ?? null);
-
-export async function createReport(
-  userId: string,
-  input: Pick<LostReport, "title" | "category" | "location" | "lostOn" | "description" | "privateDetails"> & { photo?: string },
-) {
-  const next = Math.max(...db.lostReports.map((r) => Number(r.id.slice(3)))) + 1;
-  const report: LostReport = { ...input, id: `LR-${next}`, ownerId: userId, status: "active", matchCount: 0 };
-  db.lostReports.unshift(report);
-  emit();
-  // The Worker queues AI extraction + matching for the new report; results arrive as a notification.
-  authHeaders()
-    .then((h) => fetch(`/api/reports/${report.id}/match`, { method: "POST", headers: h }))
-    .catch(() => undefined);
-  return delay(report);
-}
-
-/** A student edits their own report. In production RLS enforces the owner check too. */
-export async function updateReport(
-  userId: string,
-  id: string,
-  patch: Partial<Pick<LostReport, "title" | "category" | "location" | "lostOn" | "description" | "privateDetails" | "photo">>,
-) {
-  const r = db.lostReports.find((x) => x.id === id);
-  // Same message for "missing" and "someone else's", so the check doesn't reveal which reports exist.
-  if (!r || r.ownerId !== userId) throw new Error("Report not found.");
-  Object.assign(r, patch);
-  // An edited hidden report goes back to the office for another look; it is not re-published automatically.
-  if (r.status === "hidden") r.statusNote = "Edited. Waiting for the office to review it again.";
-  emit();
-  return delay(r);
-}
-
-export async function setReportStatus(id: string, status: LostReport["status"]) {
-  const r = db.lostReports.find((x) => x.id === id);
-  if (r) {
-    r.status = status;
-    r.statusNote = status === "resolved" ? "You marked this item as found." : undefined;
-  }
-  emit();
-  return delay(r);
-}
-
-export async function getMatches(reportId: string): Promise<Match[]> {
-  try {
-    const res = await fetch(`/api/reports/${reportId}/matches`, { headers: await authHeaders() });
-    if (res.ok) return ((await res.json()) as { matches: Match[] }).matches;
-  } catch {
-    /* fall back to sample matches */
-  }
-  const seeds = db.matchesByReport[reportId] ?? [];
-  const matches: Match[] = seeds.flatMap((s) => {
-    const item = db.foundItems.find((i) => i.id === s.itemId);
-    return item ? [{ rank: s.rank, likelihood: s.likelihood, why: s.why, but: s.but, item: toPublic(item) }] : [];
-  });
-  return delay(matches);
-}
 
 // ---- claims --------------------------------------------------------------------------
 export const listMyClaims = (userId: string) =>
@@ -381,65 +305,6 @@ export function profileStats(user: Profile) {
     { label: "Claims needing action", value: db.claims.filter((c) => ["pending", "needs_info", "approved"].includes(c.status)).length },
     { label: "Items in custody", value: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length },
   ];
-}
-
-// ---- moderation ----------------------------------------------------------------------
-export const listFlaggedPosts = () => delay([...db.flaggedPosts]);
-/**
- * Hide or restore a flagged lost report. Several students can flag the same report, so every
- * flag on that report follows; otherwise the others would still say "Visible" after a hide.
- */
-export async function setFlaggedVisible(id: string, visible: boolean) {
-  const f = db.flaggedPosts.find((x: FlaggedPost) => x.id === id);
-  if (f) {
-    for (const same of db.flaggedPosts) if (same.reportId === f.reportId) same.visible = visible;
-    const r = db.lostReports.find((x) => x.id === f.reportId);
-    if (r) {
-      r.status = visible ? "active" : "hidden";
-      record(visible ? "unhid" : "hid", `${visible ? "made visible" : "hid"} lost report ${r.id}`, r.title, `/admin/lost/${r.id}`);
-    }
-  }
-  emit();
-  return delay(f);
-}
-
-const FLAG_TEXT: Record<FlagReason, string> = {
-  contact: "Shows personal contact details",
-  fake: "Fake, spam or a joke post",
-  offensive: "Offensive or inappropriate",
-  other: "Something else",
-};
-/** A student reports a lost report. The post stays visible until the office decides. */
-export async function flagReport(reportId: string, reporterId: string, reason: FlagReason, note?: string) {
-  const r = db.lostReports.find((x) => x.id === reportId);
-  if (!r) throw new Error("This post isn't available anymore.");
-  if (r.ownerId === reporterId) throw new Error("You can't report your own post.");
-  if (db.flaggedPosts.some((f) => f.reportId === reportId && f.reporterId === reporterId))
-    throw new Error("You already reported this post. The office will review it.");
-  const email = getProfile(reporterId)?.email ?? "";
-  const next = Math.max(...db.flaggedPosts.map((f) => Number(f.id.slice(3)))) + 1;
-  db.flaggedPosts.unshift({
-    id: `FP-${next}`,
-    reportId,
-    title: r.title,
-    reporterLabel: email ? `${email[0]}•••@${email.split("@")[1]}` : "a student",
-    reporterId,
-    reason: FLAG_TEXT[reason],
-    note: note?.trim() || undefined,
-    visible: true,
-    reportedAt: new Date().toISOString(),
-  });
-  db.adminNotifications.unshift({
-    id: crypto.randomUUID(),
-    kind: "flagged",
-    title: "A lost report was flagged",
-    detail: `${r.title} · ${FLAG_TEXT[reason].toLowerCase()}`,
-    at: new Date().toISOString(),
-    read: false,
-    href: "/admin/flagged",
-  });
-  emit();
-  return delay(true, 300);
 }
 
 // ---- categories and locations (super admin) -------------------------------------------

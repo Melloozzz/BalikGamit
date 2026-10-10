@@ -112,7 +112,7 @@ export function AdminLostReportModal() {
         {null}
       </Modal>
     );
-  const owner = getProfile(report.ownerId);
+  const owner = report.owner;
   const hidden = report.status === "hidden";
   return (
     <Modal

@@ -24,13 +24,13 @@ To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both va
 | All routes, layouts, forms, validation, status flows | Done. |
 | Item details (found and lost, student and admin) | Popups. Opened from a list, they sit over that page. Opened from a direct link, they sit over All found items or All lost items (students), or the office Found items / Lost reports lists. |
 | Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Found items, Edit found item, Unclaimed: on the database. The rest still on sample data. In the database, the activity log is written by triggers (`admin_activity`), so entries can't be faked. Holding period and other office numbers live in `office_settings`. |
-| Students can report a lost-report post | Done. Creates a flagged post and an office notification; one report per student per post. |
+| Students can report a lost-report post | On the database (`flags`). One flag per student per post, never on your own post; the office gets a notification. |
 | Auth (sign in/up, RTU-only domain, verify, reset) | Supabase Auth. Sign-up records which Privacy Notice version the user agreed to (`src/lib/consent.ts`). Deactivated accounts can't sign in. |
-| Data reads and writes (`src/data/api.ts`) | Moving to Supabase area by area. **Done:** reference lists and office settings (`reference.ts`), found items (`foundItems.ts`). **Still on sample data (`mock.ts`):** lost reports, claims, messages, notifications, office reports, super admin pages. |
+| Data reads and writes (`src/data/api.ts`) | Moving to Supabase area by area. **Done:** reference lists and office settings (`reference.ts`), found items (`foundItems.ts`), lost reports, matches and flags (`lostReports.ts`). **Still on sample data (`mock.ts`):** claims, messages, notifications, dashboard, office reports, super admin pages. |
 | Match list (`GET /api/reports/:id/matches`) | Worker route is written. The app falls back to local word overlap if the Worker is not running. |
 | Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler that calls `rankCandidates` (`worker/ai/groqClient.ts`), which is written and tested but not called anywhere yet. |
 | Expiry (90-day reports, 5-day pickup) and reminders | The database functions exist (`run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders`). **The Worker cron still calls the old names** and must be updated. Until then nothing expires. |
-| Photo upload | Found items: uploaded to the private `found-photos` bucket, re-encoded in the browser so location data is removed (`photos.ts`). Lost reports: not yet. |
+| Photo upload | Found items: uploaded to the private `found-photos` bucket, re-encoded in the browser so location data is removed (`photos.ts`). Lost reports: same, into the private `lost-photos` bucket under the student's own folder. |
 | Email notifications | Toggles only. No sender yet. |
 
 ## Database
