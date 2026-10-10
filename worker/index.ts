@@ -1,98 +1,141 @@
 // One Cloudflare Worker: serves the built React app (static assets, see wrangler.jsonc)
 // and the API below. The browser talks to Supabase directly for ordinary reads/writes
-// under RLS; this Worker only handles secrets, AI calls, privileged admin actions and cron.
+// under RLS; this Worker only handles what needs the service key: office invites, account
+// deletion, the AI job queue, emails, and the scheduled sweeps.
 import { Hono } from "hono";
+import { auth, profileOf, rest, rpc, storage, userFromToken, type Env } from "./supabase";
+import { processJobs } from "./jobs";
+import { emailUnreadMessages } from "./email";
 
-interface Env {
-  ASSETS: Fetcher;
-  SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-  GROQ_API_KEY: string;
-  GROQ_MODEL: string;
-}
 type Vars = { userId: string };
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>().basePath("/api");
-
-/** Minimal PostgREST helper using the service key (never exposed to the browser). */
-async function rest<T>(env: Env, path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
-    ...init,
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "content-type": "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
-  return (res.status === 204 ? undefined : await res.json()) as T;
-}
 
 app.get("/health", (c) => c.json({ ok: true }));
 
 // Every other route needs a signed-in user. The token is checked with Supabase Auth;
 // roles are read from the database, never from anything the client sends.
 app.use("*", async (c, next) => {
-  if (!c.env.SUPABASE_SERVICE_ROLE_KEY) return c.json({ error: "not_configured" }, 503);
+  if (!c.env.SUPABASE_SERVICE_ROLE_KEY) return c.json({ error: "The server isn't set up yet." }, 503);
   const token = c.req.header("authorization")?.replace(/^Bearer /, "");
-  if (!token) return c.json({ error: "unauthorized" }, 401);
-  const res = await fetch(`${c.env.SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: c.env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return c.json({ error: "unauthorized" }, 401);
-  const user = (await res.json()) as { id: string };
+  const user = token ? await userFromToken(c.env, token) : null;
+  if (!user) return c.json({ error: "Please sign in again." }, 401);
   c.set("userId", user.id);
   await next();
 });
 
-/** Stored match suggestions for one of the caller's lost reports. */
-app.get("/reports/:id/matches", async (c) => {
-  const id = c.req.param("id");
-  const owner = await rest<{ owner_id: string }[]>(c.env, `lost_reports?id=eq.${encodeURIComponent(id)}&select=owner_id`);
-  if (owner[0]?.owner_id !== c.get("userId")) return c.json({ error: "not_found" }, 404);
-  const matches = await rest<unknown[]>(
-    c.env,
-    `matches?lost_report_id=eq.${encodeURIComponent(id)}&select=rank,likelihood,why,but,item:found_items(id,title,category,location,found_on,description,photo_path)&order=rank`,
-  );
-  return c.json({ matches });
-});
+const RTU = /^[^\s@]+@rtu\.edu\.ph$/i;
 
-/** Queue AI extraction + matching for a new or edited report. The cron retries failed jobs. */
-app.post("/reports/:id/match", async (c) => {
-  // Only the report's owner or office staff can queue it; each job spends Groq quota.
-  const id = c.req.param("id");
-  const userId = c.get("userId");
-  const owner = await rest<{ owner_id: string }[]>(c.env, `lost_reports?id=eq.${encodeURIComponent(id)}&select=owner_id`);
-  if (!owner[0]) return c.json({ error: "not_found" }, 404);
-  if (owner[0].owner_id !== userId) {
-    const me = await rest<{ role: string }[]>(c.env, `profiles?id=eq.${encodeURIComponent(userId)}&select=role`);
-    if (me[0]?.role !== "admin" && me[0]?.role !== "super_admin") return c.json({ error: "not_found" }, 404);
-  }
-  await rest(c.env, "ai_jobs", {
+/** Super admin: invite a new person by email and give them an office role. */
+app.post("/admin/invite", async (c) => {
+  const me = await profileOf(c.env, c.get("userId"));
+  if (!me || me.role !== "super_admin" || !me.is_active) return c.json({ error: "Only a super admin can add admins." }, 403);
+  const body = (await c.req.json().catch(() => ({}))) as { fullName?: string; email?: string; role?: string };
+  const fullName = (body.fullName ?? "").trim();
+  const email = (body.email ?? "").trim().toLowerCase();
+  if (fullName.length < 2) return c.json({ error: "Enter the admin's full name." }, 400);
+  if (!RTU.test(email)) return c.json({ error: "Use an @rtu.edu.ph email address." }, 400);
+  if (body.role !== "admin" && body.role !== "super_admin") return c.json({ error: "Choose a role." }, 400);
+
+  const existing = await rest<{ id: string }[]>(c.env, `profiles?email=eq.${encodeURIComponent(email)}&select=id`);
+  if (existing.length) return c.json({ error: "That email already has an account. Add them again and they'll get the role right away." }, 409);
+
+  // The invite link signs them in on the Reset password page, where they choose a password.
+  const origin = new URL(c.req.url).origin;
+  const invited = await auth<{ id: string }>(c.env, `invite?redirect_to=${encodeURIComponent(`${origin}/reset-password`)}`, {
+    method: "POST",
+    body: JSON.stringify({ email, data: { full_name: fullName } }),
+  }).catch(() => null);
+  if (!invited?.id) return c.json({ error: "The invite couldn't be sent. Check the email address and the project's email settings." }, 502);
+
+  // The sign-up trigger made a student profile; give it the office role.
+  await rest(c.env, `profiles?id=eq.${invited.id}`, {
+    method: "PATCH",
+    headers: { prefer: "return=minimal" },
+    body: JSON.stringify({ role: body.role, full_name: fullName }),
+  });
+  await rest(c.env, "admin_activity", {
     method: "POST",
     headers: { prefer: "return=minimal" },
-    body: JSON.stringify({ kind: "match_report", ref_id: id, requested_by: userId }),
+    body: JSON.stringify({
+      actor_id: me.id,
+      kind: "admins",
+      text: `invited ${fullName} as ${body.role === "super_admin" ? "a super admin" : "an admin"}`,
+    }),
   });
-  return c.json({ queued: true }, 202);
+  return c.json({ invited: true }, 201);
+});
+
+/**
+ * A student deletes their own account (Data Privacy Act: right to erasure). Their reports, claims,
+ * flags and notifications go with it (foreign keys cascade); their report photos are removed.
+ */
+app.delete("/account", async (c) => {
+  const me = await profileOf(c.env, c.get("userId"));
+  if (!me) return c.json({ error: "Account not found." }, 404);
+  if (me.role === "admin" || me.role === "super_admin") return c.json({ error: "Office accounts are deactivated by a super admin instead." }, 403);
+  const open = await rest<unknown[]>(c.env, `claims?claimant_id=eq.${me.id}&status=in.(pending,needs_info,approved)&select=id`);
+  if (open.length) return c.json({ error: "Withdraw your open claims first, then delete your account." }, 409);
+
+  const reports = await rest<{ photo_paths: string[] }[]>(c.env, `lost_reports?reporter_id=eq.${me.id}&select=photo_paths`);
+  const photos = reports.flatMap((r) => r.photo_paths ?? []);
+  if (photos.length) await storage(c.env, "object/lost-photos", { method: "DELETE", body: JSON.stringify({ prefixes: photos }) }).catch(() => undefined);
+  await auth(c.env, `admin/users/${me.id}`, { method: "DELETE" });
+  return c.json({ deleted: true });
+});
+
+/**
+ * Runs a few queued AI jobs now, so a student who just posted a report (or staff who just logged
+ * an item) gets matches in seconds instead of at the next scheduled run.
+ */
+app.post("/jobs/kick", async (c) => {
+  const result = await processJobs(c.env, 3);
+  return c.json(result);
 });
 
 app.onError((err, c) => {
   console.error(err);
-  return c.json({ error: "server_error" }, 500);
+  return c.json({ error: "Something went wrong on the server. Try again." }, 500);
 });
+
+const KEEP_ALIVE = "0 3 */3 * *";
+const HOURLY = "0 * * * *";
+
+/** One failing step shouldn't stop the others. */
+async function step(name: string, run: () => Promise<unknown>) {
+  try {
+    await run();
+  } catch (err) {
+    console.error(`cron ${name}:`, err);
+  }
+}
 
 export default {
   fetch: app.fetch,
-  // Cron: keep-alive ping (every 3 days) and hourly housekeeping.
+  // Proposal: the Cloudflare Cron Trigger keeps the Supabase project awake and runs the sweeps,
+  // reminders, AI jobs and emails. The database functions apply the status rules.
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
-    if (event.cron === "0 3 */3 * *") {
-      ctx.waitUntil(rest(env, "categories?select=id&limit=1"));
+    if (event.cron === KEEP_ALIVE) {
+      // Any request counts as activity; the purge keeps records only as long as the Privacy Notice says.
+      ctx.waitUntil(step("purge", () => rpc(env, "purge_old_records", { p_days: 365 })));
       return;
     }
-    // Database functions do the status changes, so the allowed-transition rules apply here too.
-    ctx.waitUntil(rest(env, "rpc/expire_old_reports", { method: "POST", body: "{}" }));
-    ctx.waitUntil(rest(env, "rpc/expire_unclaimed_pickups", { method: "POST", body: "{}" }));
-    // TODO(Sprint 3): process queued ai_jobs here, respecting Groq rate limits.
+    if (event.cron === HOURLY) {
+      ctx.waitUntil(
+        (async () => {
+          await step("expiry", () => rpc(env, "run_expiry_sweep"));
+          await step("pickups", () => rpc(env, "run_pickup_expiry_sweep"));
+          await step("reminders", () => rpc(env, "run_reminders"));
+        })(),
+      );
+      return;
+    }
+    // Every 5 minutes: AI jobs (and retries) and message emails.
+    ctx.waitUntil(
+      (async () => {
+        await step("ai jobs", () => processJobs(env));
+        await step("emails", () => emailUnreadMessages(env));
+      })(),
+    );
   },
 } satisfies ExportedHandler<Env>;

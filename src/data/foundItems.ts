@@ -8,6 +8,7 @@ import { OFFICE, categoryId, categoryName, locationId, locationName } from "./re
 import { idOf, manilaDate, must, one, remember } from "./db";
 import { removePhotos, signedUrls, uploadPhoto } from "./photos";
 import { emit } from "./events";
+import { kickMatching } from "./worker";
 
 export const PUBLIC_COLS = "id, ref, title, description, date_found, status, photo_paths, category_id, location_id, location_detail";
 const OFFICE_COLS = `${PUBLIC_COLS}, hold_until, disposal_note, closed_at, is_hidden,
@@ -150,6 +151,7 @@ export async function logFoundItem(input: FoundItemInput): Promise<FoundItem> {
   remember(row.ref, row.id);
   await savePrivate(row.id, input.privateDetails, input.shelfTag || null);
   emit();
+  kickMatching();
   return (await getFoundItem(row.ref, { admin: true }))!;
 }
 
