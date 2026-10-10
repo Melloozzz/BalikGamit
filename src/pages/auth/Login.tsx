@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { AuthLayout } from "../../layouts/AuthLayout";
 import { PasswordField, TextField } from "../../components/ui";
 import { AuthError, useAuth, isAdmin } from "../../auth/AuthContext";
-import { isDemoMode } from "../../lib/supabase";
 
 export function Login() {
   const { signIn } = useAuth();
@@ -69,12 +68,6 @@ export function Login() {
         <p className="auth-switch">
           New to BalikGamit? <Link to="/signup">Create an account</Link>
         </p>
-        {isDemoMode && (
-          <p className="demo-note">
-            Demo mode: sign in as <b>angela.reyes@rtu.edu.ph</b> (student) or <b>maria.santos@rtu.edu.ph</b> (office), with any
-            password of 8+ characters.
-          </p>
-        )}
       </form>
     </AuthLayout>
   );

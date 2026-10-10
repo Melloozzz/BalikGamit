@@ -8,20 +8,12 @@ Stack (per project plan): React 19 + TypeScript on Vite, React Router, zod, one 
 
 ```bash
 npm install
-npm run dev          # http://localhost:5173, demo mode
+npm run dev          # http://localhost:5173 (needs .env.local)
 npm test             # unit tests
 npm run build        # typecheck (app + worker), then production build
 ```
 
-**Demo mode** runs when `VITE_SUPABASE_URL` is empty. It uses in-memory sample data, which resets on reload. To sign in:
-
-| Account | Role | Lands on |
-|---|---|---|
-| `angela.reyes@rtu.edu.ph` | student | `/home` |
-| `maria.santos@rtu.edu.ph` | super admin | `/admin` |
-| `jose.ramirez@rtu.edu.ph` | admin | `/admin` |
-
-Any password of 8 or more characters works.
+The app needs the Supabase settings: copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable key; ask the project lead). Without them the app shows a setup message. There is no demo mode: everything runs against the database, so sign in with a real `@rtu.edu.ph` account.
 
 To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both values, then run `npm run worker:dev` (port 8787). `vite` proxies `/api` to it.
 
@@ -31,14 +23,14 @@ To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both va
 |---|---|
 | All routes, layouts, forms, validation, status flows | Done. |
 | Item details (found and lost, student and admin) | Popups. Opened from a list, they sit over that page. Opened from a direct link, they sit over All found items or All lost items (students), or the office Found items / Lost reports lists. |
-| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Done on demo data. In the database, the activity log is written by triggers (`admin_activity`), so entries can't be faked. Holding period and other office numbers live in `office_settings`. |
+| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Found items, Edit found item, Unclaimed: on the database. The rest still on sample data. In the database, the activity log is written by triggers (`admin_activity`), so entries can't be faked. Holding period and other office numbers live in `office_settings`. |
 | Students can report a lost-report post | Done. Creates a flagged post and an office notification; one report per student per post. |
-| Auth (sign in/up, RTU-only domain, verify, reset) | Wired to Supabase Auth when env vars are set; demo otherwise. Sign-up records which Privacy Notice version the user agreed to (`src/lib/consent.ts`). Deactivated accounts can't sign in. |
-| Data reads and writes (`src/data/api.ts`) | **In-memory mock.** Each function is the swap point for a Supabase query. The UI code does not change. |
+| Auth (sign in/up, RTU-only domain, verify, reset) | Supabase Auth. Sign-up records which Privacy Notice version the user agreed to (`src/lib/consent.ts`). Deactivated accounts can't sign in. |
+| Data reads and writes (`src/data/api.ts`) | Moving to Supabase area by area. **Done:** reference lists and office settings (`reference.ts`), found items (`foundItems.ts`). **Still on sample data (`mock.ts`):** lost reports, claims, messages, notifications, office reports, super admin pages. |
 | Match list (`GET /api/reports/:id/matches`) | Worker route is written. The app falls back to local word overlap if the Worker is not running. |
 | Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler that calls `rankCandidates` (`worker/ai/groqClient.ts`), which is written and tested but not called anywhere yet. |
 | Expiry (90-day reports, 5-day pickup) and reminders | The database functions exist (`run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders`). **The Worker cron still calls the old names** and must be updated. Until then nothing expires. |
-| Photo upload | UI only. It is not yet sent to Supabase Storage. |
+| Photo upload | Found items: uploaded to the private `found-photos` bucket, re-encoded in the browser so location data is removed (`photos.ts`). Lost reports: not yet. |
 | Email notifications | Toggles only. No sender yet. |
 
 ## Database
@@ -92,7 +84,7 @@ Status values in `src/data/types.ts` match the database enums. Lost reports have
 
 ```
 src/
-  auth/        AuthContext (Supabase or demo)
+  auth/        AuthContext (Supabase Auth + reference lists)
   components/  Brand, Icon, ui primitives, MessageThread, Footer, Modal, ProfileMenu
   data/        types.ts, mock.ts, api.ts (swap point)
   layouts/     Auth, Marketing, Student, Admin, Drawer
