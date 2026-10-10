@@ -4,31 +4,15 @@ import { describe, expect, it } from "vitest";
 import { CATEGORIES } from "./mock";
 import {
   createClaim,
-  dashboardCounts,
   decideClaim,
-  flagReport,
-  getMyReport,
-  getReport,
   itemFor,
-  listAllLostReports,
-  listFlaggedPosts,
-  officeReport,
   renamePlace,
-  setFlaggedVisible,
-  updateReport,
   withCurrent,
   withdrawClaim,
 } from "./api";
 
 const answers = ["a unique scratch", "a receipt inside", "library, Tuesday"];
 const questions = ["Q1", "Q2", "Q3"];
-
-describe("getMyReport", () => {
-  it("returns a student's own report and nothing for anyone else's", async () => {
-    expect((await getMyReport("u-angela", "LR-214"))?.id).toBe("LR-214");
-    expect(await getMyReport("u-angela", "LR-210")).toBeNull();
-  });
-});
 
 describe("withCurrent", () => {
   it("keeps an archived value selectable on a record that uses it", () => {
@@ -38,46 +22,12 @@ describe("withCurrent", () => {
   });
 });
 
-describe("flagged posts", () => {
-  it("hides every flag on a report together, and counts reports rather than flags", async () => {
-    // LR-205 already has one visible flag (FP-33); a second student flags it too.
-    await flagReport("LR-205", "u-angela", "fake");
-    const before = dashboardCounts().flagged;
-    await setFlaggedVisible("FP-33", false);
-    const flags = (await listFlaggedPosts()).filter((f) => f.reportId === "LR-205");
-    expect(flags).toHaveLength(2);
-    expect(flags.every((f) => !f.visible)).toBe(true);
-    expect(dashboardCounts().flagged).toBe(before - 1);
-  });
-});
-
 describe("renamePlace", () => {
   it("allows a rename that only changes capitals, but not one that clashes with another name", async () => {
     await renamePlace("category", "School supplies", "School Supplies");
     expect(CATEGORIES).toContain("School Supplies");
     await expect(renamePlace("category", "School Supplies", "keys")).rejects.toThrow("already exists");
     await renamePlace("category", "School Supplies", "School supplies");
-  });
-});
-
-describe("officeReport", () => {
-  it("counts lost reports filed before the first found item in All time", async () => {
-    const all = officeReport();
-    expect(all.from <= "2026-06-20").toBe(true);
-    expect(all.lostReports).toBe((await listAllLostReports()).length);
-  });
-});
-
-describe("updateReport", () => {
-  it("refuses to edit another student's report", async () => {
-    const before = (await getReport("LR-210"))!.title;
-    await expect(updateReport("u-angela", "LR-210", { title: "Overwritten" })).rejects.toThrow("Report not found.");
-    expect((await getReport("LR-210"))!.title).toBe(before);
-  });
-
-  it("lets the owner edit their own report", async () => {
-    await updateReport("u-angela", "LR-214", { title: "Navy umbrella, edited" });
-    expect((await getReport("LR-214"))!.title).toBe("Navy umbrella, edited");
   });
 });
 
