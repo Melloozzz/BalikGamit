@@ -1,14 +1,14 @@
 import { Link } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
 import { ClaimBadge, ItemPhoto, Loading, PageHead } from "../../components/ui";
-import { dashboardCounts, listAllClaims } from "../../data/api";
+import { getDashboardCounts, listAllClaims } from "../../data/api";
 import { shortDate, timeOfDayGreeting } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 export function Dashboard() {
   const claims = useLoad(() => listAllClaims(), []);
-  if (!claims) return <Loading />;
-  const counts = dashboardCounts();
+  const counts = useLoad(() => getDashboardCounts(), []);
+  if (!claims || !counts) return <Loading />;
   const stats: { icon: IconName; n: number; label: string; to?: string }[] = [
     { icon: "box", n: counts.inCustody, label: "Items in custody", to: "/admin/items" },
     { icon: "clock", n: counts.claimsToAct, label: "Claims needing action", to: "/admin/claims" },
