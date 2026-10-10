@@ -6,6 +6,7 @@ import { isOfficeRole, type OfficeRole, type Place, type Profile } from "./types
 import { loadReference } from "./reference";
 import { must } from "./db";
 import { emit } from "./events";
+import { workerFetch } from "./worker";
 
 type PlaceKind = "category" | "location";
 const table = (k: PlaceKind) => (k === "category" ? "categories" : "locations");
@@ -113,12 +114,7 @@ export async function inviteAdmin(fullName: string, email: string, role: OfficeR
     emit();
     return "promoted";
   }
-  const token = (await supabase.auth.getSession()).data.session?.access_token;
-  const res = await fetch("/api/admin/invite", {
-    method: "POST",
-    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ fullName: fullName.trim(), email: address, role }),
-  }).catch(() => null);
+  const res = await workerFetch("/admin/invite", { method: "POST", body: JSON.stringify({ fullName: fullName.trim(), email: address, role }) });
   if (!res || !res.ok) {
     const msg = res ? ((await res.json().catch(() => null)) as { error?: string } | null)?.error : null;
     throw new Error(
@@ -146,7 +142,9 @@ export async function updateMyName(userId: string, fullName: string) {
  * to erasure). Needs the service key, so the Worker does it.
  */
 export async function deleteMyAccount() {
-  const token = (await supabase.auth.getSession()).data.session?.access_token;
-  const res = await fetch("/api/account", { method: "DELETE", headers: token ? { authorization: `Bearer ${token}` } : {} }).catch(() => null);
-  if (!res || !res.ok) throw new Error("Your account couldn't be deleted right now. Try again later, or ask the office to delete it.");
+  const res = await workerFetch("/account", { method: "DELETE" });
+  if (!res || !res.ok) {
+    const msg = res ? ((await res.json().catch(() => null)) as { error?: string } | null)?.error : null;
+    throw new Error(msg ?? "Your account couldn't be deleted right now. Try again later, or ask the office to delete it.");
+  }
 }

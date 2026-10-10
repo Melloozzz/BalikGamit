@@ -8,6 +8,7 @@ import { idOf, must, one, remember } from "./db";
 import { removePhotos, signedUrls, uploadPhoto } from "./photos";
 import { toFoundItems } from "./foundItems";
 import { emit } from "./events";
+import { kickMatching } from "./worker";
 
 const PUBLIC_COLS = "id, ref, reporter_id, title, description, date_lost, status, is_hidden, photo_paths, category_id, location_id";
 const OWNER_COLS = `${PUBLIC_COLS}, status_note, created_at, lost_report_private(private_details), match_suggestions(count)`;
@@ -123,6 +124,7 @@ export async function createReport(userId: string, input: ReportInput): Promise<
   remember(row.ref, row.id);
   must(await supabase.from("lost_report_private").insert({ lost_report_id: row.id, private_details: input.privateDetails }));
   emit();
+  kickMatching();
   return (await getMyReport(userId, row.ref))!;
 }
 
@@ -193,7 +195,11 @@ export async function getMatches(ref: string): Promise<Match[]> {
   ) as { rank: number; likelihood: Match["likelihood"]; explanation: string; found_items: unknown }[];
   const withItems = rows.filter((r) => one(r.found_items as object | object[] | null));
   const items = await toFoundItems(withItems.map((r) => one(r.found_items as never)) as never[], false);
-  return withItems.map((r, i) => ({ rank: r.rank, likelihood: r.likelihood, why: r.explanation, item: items[i] }));
+  // The Worker stores "why" and an optional "But: ..." on a second line.
+  return withItems.map((r, i) => {
+    const [why, but] = r.explanation.split("\nBut: ");
+    return { rank: r.rank, likelihood: r.likelihood, why, but: but || undefined, item: items[i] };
+  });
 }
 
 // ---- office -----------------------------------------------------------------------------

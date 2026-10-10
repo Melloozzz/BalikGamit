@@ -15,7 +15,7 @@ npm run build        # typecheck (app + worker), then production build
 
 The app needs the Supabase settings: copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the publishable key; ask the project lead). Without them the app shows a setup message. There is no demo mode: everything runs against the database, so sign in with a real `@rtu.edu.ph` account.
 
-To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both values, then run `npm run worker:dev` (port 8787). `vite` proxies `/api` to it.
+To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in `SUPABASE_SERVICE_ROLE_KEY` and `GROQ_API_KEY` (and optionally `RESEND_API_KEY`, `EMAIL_FROM`), then run `npm run worker:dev` (port 8787). `vite` proxies `/api` to it. To deploy: `npm run build`, then `npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY` and `npx wrangler secret put GROQ_API_KEY`, then `npx wrangler deploy`.
 
 ## What is done and what is not
 
@@ -27,11 +27,10 @@ To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both va
 | Students can report a lost-report post | On the database (`flags`). One flag per student per post, never on your own post; the office gets a notification. |
 | Auth (sign in/up, RTU-only domain, verify, reset) | Supabase Auth. Sign-up records which Privacy Notice version the user agreed to (`src/lib/consent.ts`). Deactivated accounts can't sign in. |
 | Data reads and writes (`src/data/api.ts`) | All on Supabase: reference lists and office settings (`reference.ts`), found items (`foundItems.ts`), lost reports, matches and flags (`lostReports.ts`), claims, messages and notifications with live updates (`claims.ts`), dashboard, reports, activity log and profile stats (`office.ts`), categories & locations, office accounts and settings (`admin.ts`). There is no sample data. |
-| Match list (`GET /api/reports/:id/matches`) | Worker route is written. The app falls back to local word overlap if the Worker is not running. |
-| Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler that calls `rankCandidates` (`worker/ai/groqClient.ts`), which is written and tested but not called anywhere yet. |
-| Expiry (90-day reports, 5-day pickup) and reminders | The database functions exist (`run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders`). **The Worker cron still calls the old names** and must be updated. Until then nothing expires. |
+| Matching | The browser reads `match_suggestions` directly. The Worker fills it: extract attributes (Groq) → database prefilter (`candidate_matches`) → Groq ranking, then notifies the owner of new likely matches (`worker/jobs.ts`). Posting a report or logging an item asks the Worker to run right away (`/api/jobs/kick`); the cron retries every 5 minutes. Text is redacted (phones, emails, links, ID numbers) before it goes to Groq. |
+| Expiry (90-day reports, 5-day pickup) and reminders | The Worker cron calls `run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders` hourly and `purge_old_records(365)` every 3 days. **Nothing runs until the Worker is deployed.** |
 | Photo upload | Found items: uploaded to the private `found-photos` bucket, re-encoded in the browser so location data is removed (`photos.ts`). Lost reports: same, into the private `lost-photos` bucket under the student's own folder. |
-| Email notifications | Toggles only (not saved). No sender yet. |
+| Email notifications | Unread claim messages: one email per thread per hour through Resend when `RESEND_API_KEY` and `EMAIL_FROM` are set (`worker/email.ts`). The settings toggles are not saved yet. |
 | Office invites, account deletion | Call the Worker (`/api/admin/invite`, `/api/account`), which holds the service key. An existing account can be given an office role without the Worker. |
 
 ## Database
