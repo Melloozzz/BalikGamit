@@ -28,17 +28,25 @@ async function names(env: Env): Promise<Names> {
   return { categories: new Map(c.map((x) => [x.id, x.name])), locations: new Map(l.map((x) => [x.id, x.name])) };
 }
 
-async function enqueueRank(env: Env, lostReportId: string) {
-  const open = await rest<unknown[]>(
+/**
+ * Queues ranking for these lost reports, skipping any that already have one queued or running.
+ * Two requests however many reports there are (Workers allow a limited number of subrequests).
+ */
+async function enqueueRank(env: Env, lostReportIds: string[]) {
+  const ids = [...new Set(lostReportIds)];
+  if (!ids.length) return;
+  const open = await rest<{ target_id: string }[]>(
     env,
-    `ai_jobs?job_type=eq.rank_matches&target_id=eq.${lostReportId}&status=in.(queued,processing)&select=id`,
+    `ai_jobs?job_type=eq.rank_matches&target_id=in.(${ids.join(",")})&status=in.(queued,processing)&select=target_id`,
   );
-  if (open.length) return;
+  const busy = new Set(open.map((o) => o.target_id));
+  const fresh = ids.filter((id) => !busy.has(id));
+  if (!fresh.length) return;
   await rest(env, "ai_jobs", {
     method: "POST",
     headers: { prefer: "return=minimal" },
-    body: JSON.stringify({ job_type: "rank_matches", target_type: "lost_report", target_id: lostReportId }),
-  }).catch(() => undefined); // a job queued at the same moment is fine
+    body: JSON.stringify(fresh.map((id) => ({ job_type: "rank_matches", target_type: "lost_report", target_id: id }))),
+  }).catch(() => undefined); // one queued at the same moment by another run: the next change re-queues the rest
 }
 
 async function extract(env: Env, job: Job, n: Names) {
@@ -52,11 +60,12 @@ async function extract(env: Env, job: Job, n: Names) {
   await rest(env, `${table}?id=eq.${row.id}`, { method: "PATCH", headers: { prefer: "return=minimal" }, body: JSON.stringify({ attributes }) });
   if (row.is_hidden) return;
   if (job.target_type === "lost_report") {
-    if (row.status === "active") await enqueueRank(env, row.id);
+    if (row.status === "active") await enqueueRank(env, [row.id]);
   } else if (ON_SHELF.includes(row.status)) {
-    // A new found item: re-rank the open lost reports it could match.
-    const reports = await rpc<{ candidate_id: string }[]>(env, "candidate_matches", { p_kind: "found_item", p_id: row.id, p_limit: 20, p_window_days: 60 });
-    for (const r of reports) await enqueueRank(env, r.candidate_id);
+    // A new found item: re-rank the open lost reports it most likely matches. Capped at 10, since
+    // every re-rank is a Groq request and the free tier has a daily limit.
+    const reports = await rpc<{ candidate_id: string }[]>(env, "candidate_matches", { p_kind: "found_item", p_id: row.id, p_limit: 10, p_window_days: 60 });
+    await enqueueRank(env, reports.map((r) => r.candidate_id));
   }
 }
 
@@ -138,10 +147,23 @@ async function rank(env: Env, job: Job, n: Names) {
 const patchJob = (env: Env, id: number, values: Record<string, unknown>) =>
   rest(env, `ai_jobs?id=eq.${id}`, { method: "PATCH", headers: { prefer: "return=minimal" }, body: JSON.stringify(values) });
 
-/** Runs up to `limit` due jobs. Stops early when Groq rate-limits; those jobs wait and retry. */
-export async function processJobs(env: Env, limit = 10): Promise<{ done: number; failed: number; deferred: number }> {
+/** A run that died mid-job (timeout, crash) leaves it "processing"; after this long it is retried. */
+const STALE_MINUTES = 10;
+
+/**
+ * Runs up to `limit` due jobs. Stops early when Groq rate-limits; those jobs wait and retry.
+ * Each job costs up to about 10 Supabase/Groq requests, and a Worker invocation on the Free plan
+ * may make 50, so keep `limit` small.
+ */
+export async function processJobs(env: Env, limit = 3): Promise<{ done: number; failed: number; deferred: number }> {
   const result = { done: 0, failed: 0, deferred: 0 };
   if (!env.GROQ_API_KEY) return result;
+  const stale = new Date(Date.now() - STALE_MINUTES * 60_000).toISOString();
+  await rest(env, `ai_jobs?status=eq.processing&updated_at=lt.${encodeURIComponent(stale)}`, {
+    method: "PATCH",
+    headers: { prefer: "return=minimal" },
+    body: JSON.stringify({ status: "queued", last_error: "Timed out; retried." }),
+  });
   const now = new Date().toISOString();
   const jobs = await rest<Job[]>(
     env,
@@ -164,22 +186,28 @@ export async function processJobs(env: Env, limit = 10): Promise<{ done: number;
       await patchJob(env, job.id, { status: "done", last_error: null });
       result.done++;
     } catch (err) {
-      if (err instanceof GroqRateLimited) {
+      // If recording the outcome fails too, the stale-job reclaim above retries it later.
+      try {
+        if (err instanceof GroqRateLimited) {
+          await patchJob(env, job.id, {
+            status: "queued",
+            attempts: job.attempts, // a rate limit isn't the job's fault
+            run_after: new Date(Date.now() + err.retryAfterSeconds * 1000).toISOString(),
+          });
+          result.deferred++;
+          break;
+        }
+        const attempts = job.attempts + 1;
         await patchJob(env, job.id, {
-          status: "queued",
-          attempts: job.attempts, // a rate limit isn't the job's fault
-          run_after: new Date(Date.now() + err.retryAfterSeconds * 1000).toISOString(),
+          status: attempts >= MAX_ATTEMPTS ? "failed" : "queued",
+          last_error: String((err as Error).message).slice(0, 500),
+          run_after: new Date(Date.now() + attempts * attempts * 60_000).toISOString(),
         });
-        result.deferred++;
-        break;
+        result.failed++;
+      } catch (patchErr) {
+        console.error(`ai job ${job.id}: couldn't record the outcome`, patchErr);
+        result.failed++;
       }
-      const attempts = job.attempts + 1;
-      await patchJob(env, job.id, {
-        status: attempts >= MAX_ATTEMPTS ? "failed" : "queued",
-        last_error: String((err as Error).message).slice(0, 500),
-        run_after: new Date(Date.now() + attempts * attempts * 60_000).toISOString(),
-      });
-      result.failed++;
     }
   }
   return result;

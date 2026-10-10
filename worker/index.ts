@@ -88,9 +88,10 @@ app.delete("/account", async (c) => {
  * Runs a few queued AI jobs now, so a student who just posted a report (or staff who just logged
  * an item) gets matches in seconds instead of at the next scheduled run.
  */
-app.post("/jobs/kick", async (c) => {
-  const result = await processJobs(c.env, 3);
-  return c.json(result);
+app.post("/jobs/kick", (c) => {
+  // Answer right away; the jobs finish in the background.
+  c.executionCtx.waitUntil(processJobs(c.env, 2).catch((err) => console.error("kick:", err)));
+  return c.json({ queued: true }, 202);
 });
 
 app.onError((err, c) => {
@@ -110,6 +111,27 @@ async function step(name: string, run: () => Promise<unknown>) {
   }
 }
 
+/**
+ * Deletes closed records older than `days` (purge_old_records), then their photos, which the
+ * database can't remove from Storage itself. Same filters as the database function.
+ */
+async function purge(env: Env, days: number) {
+  const cutoff = encodeURIComponent(new Date(Date.now() - days * 86_400_000).toISOString());
+  const [lost, found] = await Promise.all([
+    rest<{ photo_paths: string[] | null }[]>(env, `lost_reports?status=in.(resolved,closed,expired)&closed_at=lt.${cutoff}&select=photo_paths`),
+    rest<{ photo_paths: string[] | null }[]>(env, `found_items?status=in.(returned,donated,disposed)&closed_at=lt.${cutoff}&select=photo_paths`),
+  ]);
+  await rpc(env, "purge_old_records", { p_days: days });
+  const remove = async (bucket: string, rows: { photo_paths: string[] | null }[]) => {
+    const paths = rows.flatMap((r) => r.photo_paths ?? []);
+    for (let i = 0; i < paths.length; i += 500) {
+      await storage(env, `object/${bucket}`, { method: "DELETE", body: JSON.stringify({ prefixes: paths.slice(i, i + 500) }) });
+    }
+  };
+  await step("purge lost photos", () => remove("lost-photos", lost));
+  await step("purge found photos", () => remove("found-photos", found));
+}
+
 export default {
   fetch: app.fetch,
   // Proposal: the Cloudflare Cron Trigger keeps the Supabase project awake and runs the sweeps,
@@ -117,7 +139,7 @@ export default {
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {
     if (event.cron === KEEP_ALIVE) {
       // Any request counts as activity; the purge keeps records only as long as the Privacy Notice says.
-      ctx.waitUntil(step("purge", () => rpc(env, "purge_old_records", { p_days: 365 })));
+      ctx.waitUntil(step("purge", () => purge(env, 365)));
       return;
     }
     if (event.cron === HOURLY) {
@@ -133,7 +155,7 @@ export default {
     // Every 5 minutes: AI jobs (and retries) and message emails.
     ctx.waitUntil(
       (async () => {
-        await step("ai jobs", () => processJobs(env));
+        await step("ai jobs", () => processJobs(env, 3));
         await step("emails", () => emailUnreadMessages(env));
       })(),
     );

@@ -4,7 +4,7 @@
 import { supabase } from "../lib/supabase";
 import type { ClaimStatus, LoadedClaim, Message, Notification } from "./types";
 import { categoryId } from "./reference";
-import { idOf, manilaDate, must, one, remember } from "./db";
+import { idOf, keyColumn, manilaDate, must, one, remember } from "./db";
 import { PUBLIC_COLS as ITEM_COLS, getFoundItem, toFoundItems } from "./foundItems";
 import { emit } from "./events";
 
@@ -32,6 +32,8 @@ const OPEN: ClaimStatus[] = ["pending", "needs_info"];
 
 /** Rows -> claims with their item, history, and (for office staff) the claimant. */
 async function toClaims(rows: Row[], office: boolean): Promise<LoadedClaim[]> {
+  // A claim whose item the reader can't see (hidden by the office) is left out rather than crashing the page.
+  rows = rows.filter((r) => one(r.found_items as object | object[] | null));
   if (!rows.length) return [];
   const items = await toFoundItems(rows.map((r) => one(r.found_items as never)) as never[], false);
   const history = must(
@@ -91,10 +93,11 @@ export async function listClaimsForItem(itemRef: string): Promise<LoadedClaim[]>
  */
 export async function getClaim(ref: string, opts: { office?: boolean } = {}): Promise<LoadedClaim | null> {
   const row = must(
-    await supabase.from("claims").select(`${CLAIM_COLS}, found_item_id, claim_answers(id, question_text, answer_text)`).eq("ref", ref).maybeSingle(),
+    await supabase.from("claims").select(`${CLAIM_COLS}, found_item_id, claim_answers(id, question_text, answer_text)`).eq(keyColumn(ref), ref).maybeSingle(),
   ) as (Row & { found_item_id: string }) | null;
   if (!row) return null;
   const [claim] = await toClaims([row], !!opts.office);
+  if (!claim) return null;
   if (!opts.office) return claim;
   const [item, others] = await Promise.all([
     getFoundItem(claim.itemId, { admin: true }),
@@ -239,9 +242,11 @@ export async function listThreads(viewer: "owner" | "office", userId?: string): 
   const rows = must(await q) as (Row & { claim_threads: { claim_messages: MessageRow[] } | { claim_messages: MessageRow[] }[] | null })[];
   const withMsgs = rows.filter((r) => one(r.claim_threads)?.claim_messages?.length);
   const claims = await toClaims(withMsgs, viewer === "office");
+  // toClaims can leave rows out (hidden items), so pair by reference, not position.
+  const rowByRef = new Map(withMsgs.map((r) => [r.ref, r]));
   return claims
-    .map((claim, i) => {
-      const msgs = one(withMsgs[i].claim_threads)!.claim_messages.map((m) => toMessage(claim.id, m)).sort((a, b) => a.at.localeCompare(b.at));
+    .map((claim) => {
+      const msgs = one(rowByRef.get(claim.id)!.claim_threads)!.claim_messages.map((m) => toMessage(claim.id, m)).sort((a, b) => a.at.localeCompare(b.at));
       const last = msgs[msgs.length - 1];
       return {
         claim,

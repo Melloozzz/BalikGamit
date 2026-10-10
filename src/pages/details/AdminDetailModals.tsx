@@ -6,6 +6,7 @@ import { getFoundItem, getMatches, getReport, listClaimsForItem, setReportStatus
 import { longDate, shortDate } from "../../lib/format";
 import { ON_SHELF } from "../../data/types";
 import { useLoad } from "../../lib/useLoad";
+import { useAction } from "../../lib/useAction";
 
 function Kv({ rows }: { rows: [string, string][] }) {
   return (
@@ -105,6 +106,7 @@ export function AdminLostReportModal() {
   const { reportId = "" } = useParams();
   const report = useLoad(() => getReport(reportId), [reportId]);
   const matches = useLoad(() => getMatches(reportId), [reportId]);
+  const action = useAction();
   if (report === undefined || !matches) return <Loading />;
   if (!report)
     return (
@@ -164,13 +166,14 @@ export function AdminLostReportModal() {
               ))}
             </ul>
           )}
+          {action.error && <Alert>{action.error}</Alert>}
           <div className="modal-admin__actions">
             {hidden ? (
-              <button className="btn btn--outline-blue" onClick={() => setReportStatus(report.id, "active")}>
+              <button className="btn btn--outline-blue" disabled={action.busy} onClick={() => action.run(() => setReportStatus(report.id, "active"))}>
                 <Icon name="eye" size={18} /> Make visible again
               </button>
             ) : (
-              <button className="btn btn--outline-danger" onClick={() => setReportStatus(report.id, "hidden")}>
+              <button className="btn btn--outline-danger" disabled={action.busy} onClick={() => action.run(() => setReportStatus(report.id, "hidden"))}>
                 <Icon name="eyeOff" size={18} /> Hide report
               </button>
             )}

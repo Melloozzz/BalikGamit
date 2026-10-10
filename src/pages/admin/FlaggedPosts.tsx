@@ -1,16 +1,19 @@
 import { ModalLink } from "../../components/Modal";
 import { Icon } from "../../components/Icon";
-import { BackButton, EmptyState, Loading, PageHead } from "../../components/ui";
+import { Alert, BackButton, EmptyState, Loading, PageHead } from "../../components/ui";
 import { listFlaggedPosts, setFlaggedVisible } from "../../data/api";
 import { useLoad } from "../../lib/useLoad";
+import { useAction } from "../../lib/useAction";
 
 export function FlaggedPosts() {
   const posts = useLoad(() => listFlaggedPosts(), []);
+  const action = useAction();
   if (!posts) return <Loading />;
   return (
     <div className="container stack-lg">
       <BackButton fallback="/admin" />
       <PageHead eyebrow="CONTENT MODERATION" title="Flagged posts" lead="Protect student privacy and keep public listings useful." />
+      {action.error && <Alert>{action.error}</Alert>}
       {posts.length === 0 ? (
         <EmptyState title="Nothing is flagged right now." />
       ) : (
@@ -37,7 +40,7 @@ export function FlaggedPosts() {
                   </p>
                 )}
               </div>
-              <button className="btn btn--outline" onClick={() => setFlaggedVisible(p.id, !p.visible)}>
+              <button className="btn btn--outline" disabled={action.busy} onClick={() => action.run(() => setFlaggedVisible(p.id, !p.visible))}>
                 <Icon name={p.visible ? "eyeOff" : "eye"} size={20} /> {p.visible ? "Hide" : "Restore"}
               </button>
             </li>
