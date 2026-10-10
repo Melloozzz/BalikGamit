@@ -4,13 +4,14 @@ import { Icon } from "../../components/Icon";
 import { Alert, BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
 import { MessageThread } from "../../components/MessageThread";
 import { ModalLink } from "../../components/Modal";
-import { decideClaim, getClaim, getProfile, itemFor, otherOpenClaims } from "../../data/api";
+import { decideClaim, getClaim } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 export function ClaimReview() {
   const { claimId = "" } = useParams();
-  const claim = useLoad(() => getClaim(claimId), [claimId]);
+  const claim = useLoad(() => getClaim(claimId, { office: true }), [claimId]);
+  const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
@@ -23,17 +24,24 @@ export function ClaimReview() {
       </div>
     );
 
-  const item = itemFor(claim.itemId)!;
-  const who = getProfile(claim.claimantId);
-  const others = otherOpenClaims(claim);
+  const item = claim.item;
+  const who = claim.claimant;
+  const others = claim.others ?? [];
   const open = claim.status === "pending" || claim.status === "needs_info";
 
   async function decide(d: "approve" | "reject" | "request_info") {
     if (d === "reject" && !reason.trim()) return setError("Give a reason. The claimant will see it.");
     if (d === "request_info" && !reason.trim()) return setError("Type the question you want to ask the claimant.");
     setError("");
-    await decideClaim(claim!.id, d, reason.trim() || undefined);
-    setReason("");
+    setBusy(true);
+    try {
+      await decideClaim(claim!.id, d, reason.trim() || undefined);
+      setReason("");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -60,7 +68,7 @@ export function ClaimReview() {
             <b>
               {others.length} other pending claim{others.length > 1 ? "s" : ""}
             </b>{" "}
-            ({others.map((o) => o.id).join(", ")}). Approving this one closes the other{others.length > 1 ? "s" : ""}.
+            ({others.join(", ")}). Approving this one closes the other{others.length > 1 ? "s" : ""}.
           </p>
         </div>
       )}
@@ -133,13 +141,13 @@ export function ClaimReview() {
             maxLength={500}
           />
           <div className="form-actions">
-            <button className="btn btn--green" onClick={() => decide("approve")}>
+            <button className="btn btn--green" disabled={busy} onClick={() => decide("approve")}>
               <Icon name="check" size={18} strokeWidth={2.6} /> Approve
             </button>
-            <button className="btn btn--outline-blue" onClick={() => decide("request_info")}>
+            <button className="btn btn--outline-blue" disabled={busy} onClick={() => decide("request_info")}>
               <Icon name="message" size={18} /> Request more info
             </button>
-            <button className="btn btn--outline-danger" onClick={() => decide("reject")}>
+            <button className="btn btn--outline-danger" disabled={busy} onClick={() => decide("reject")}>
               <Icon name="x" size={18} strokeWidth={2.4} /> Reject
             </button>
           </div>

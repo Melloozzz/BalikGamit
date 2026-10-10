@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
 import { ClaimBadge, ItemPhoto, Loading, PageHead } from "../../components/ui";
-import { dashboardCounts, getProfile, itemFor, listAllClaims } from "../../data/api";
+import { dashboardCounts, listAllClaims } from "../../data/api";
 import { shortDate, timeOfDayGreeting } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
@@ -61,7 +61,7 @@ export function Dashboard() {
         </div>
         <ul>
           {claims.slice(0, 5).map((c) => {
-            const item = itemFor(c.itemId)!;
+            const item = c.item;
             return (
               <li key={c.id}>
                 <Link to={`/admin/claims/${c.id}`} className="recent-row">
@@ -69,7 +69,7 @@ export function Dashboard() {
                   <span className="recent-row__main">
                     <strong>{item.title}</strong>
                     <span>
-                      {getProfile(c.claimantId)?.fullName} · {shortDate(c.filedOn)}
+                      {c.claimant?.fullName} · {shortDate(c.filedOn)}
                     </span>
                   </span>
                   <ClaimBadge status={c.status} />

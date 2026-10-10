@@ -91,7 +91,18 @@ export interface Claim {
   linkedReportId?: string;
   decisionReason?: string;
   pickupBy?: string;
+  /** Where to pick it up, set when the office approves. */
+  pickupOffice?: string;
   history: { status: ClaimStatus | "submitted" | "under_review"; at: string }[];
+}
+
+/** A claim as the data layer returns it: with the item, and for office staff the claimant. */
+export interface LoadedClaim extends Claim {
+  item: FoundItem;
+  /** Office only. */
+  claimant?: { fullName: string; email: string };
+  /** Office only: other claims on the same item still pending or waiting on info. */
+  others?: string[];
 }
 
 export interface Message {

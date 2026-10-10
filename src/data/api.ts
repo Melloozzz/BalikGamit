@@ -7,11 +7,7 @@
 import * as db from "./mock";
 import type {
   Activity,
-  Claim,
-  ClaimStatus,
   FoundItem,
-  Message,
-  Notification,
   Profile,
   Place,
 } from "./types";
@@ -57,6 +53,29 @@ export {
   type ReportInput,
   type OfficeLostReport,
 } from "./lostReports";
+// Claims, messages and notifications (slice 3): src/data/claims.ts.
+export {
+  listMyClaims,
+  listAllClaims,
+  listClaimsForItem,
+  getClaim,
+  listProofQuestions,
+  createClaim,
+  withdrawClaim,
+  decideClaim,
+  confirmRelease,
+  returnToCustody,
+  listMessages,
+  sendMessage,
+  subscribeToMessages,
+  listThreads,
+  listNotifications,
+  unreadCount,
+  markNotificationsRead,
+  subscribeToNotifications,
+  isClaimable,
+  type Thread,
+} from "./claims";
 export { useDataVersion } from "./events";
 import { emit } from "./events";
 
@@ -75,7 +94,6 @@ function record(kind: Activity["kind"], text: string, subject?: string, href?: s
 }
 
 const delay = <T,>(value: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(value), ms));
-const nowIso = () => new Date().toISOString();
 
 /**
  * Strip admin-only fields before anything reaches a student page: ownership evidence, who logged
@@ -96,198 +114,6 @@ const mockHoldEnds = (item: FoundItem) =>
 const hasOpenClaim = (itemId: string) =>
   db.claims.some((c) => c.itemId === itemId && ["pending", "needs_info", "approved"].includes(c.status));
 const mockIsUnclaimed = (item: FoundItem) => item.status === "in_custody" && mockHoldEnds(item) < todayIso() && !hasOpenClaim(item.id);
-
-// ---- claims --------------------------------------------------------------------------
-export const listMyClaims = (userId: string) =>
-  delay(db.claims.filter((c) => c.claimantId === userId).sort((a, b) => b.filedOn.localeCompare(a.filedOn)));
-
-export const listAllClaims = () => delay([...db.claims].sort((a, b) => b.filedOn.localeCompare(a.filedOn)));
-
-export const getClaim = (id: string) => delay(db.claims.find((c) => c.id === id) ?? null);
-
-export const otherOpenClaims = (claim: Claim) =>
-  db.claims.filter((c) => c.itemId === claim.itemId && c.id !== claim.id && (c.status === "pending" || c.status === "needs_info"));
-
-/** Synchronous lookup of the item behind a claim, admin fields included. */
-/** Office view: every claim filed on one found item, newest first. */
-export const listClaimsForItem = (itemId: string) =>
-  delay(db.claims.filter((c) => c.itemId === itemId).sort((a, b) => b.filedOn.localeCompare(a.filedOn)));
-
-export const itemFor = (itemId: string) => db.foundItems.find((i) => i.id === itemId);
-
-/** Only items the office still holds, and that aren't already promised to someone, can be claimed. */
-export const isClaimable = (item: Pick<FoundItem, "status">) => item.status === "in_custody" || item.status === "claim_pending";
-
-export async function createClaim(userId: string, itemId: string, answers: string[], questions: string[]) {
-  const item = db.foundItems.find((i) => i.id === itemId);
-  if (!item || !isClaimable(item)) throw new Error("This item can't be claimed. The office no longer has it, or it's already being returned to its owner.");
-  const existing = db.claims.filter((c) => c.itemId === itemId && c.claimantId === userId);
-  if (existing.length >= 2) throw new Error("You've used both claim attempts for this item.");
-  const next = Math.max(...db.claims.map((c) => Number(c.id.slice(3)))) + 1;
-  const at = nowIso();
-  const claim: Claim = {
-    id: `CL-${next}`,
-    itemId,
-    claimantId: userId,
-    status: "pending",
-    filedOn: at,
-    answers: answers.map((answer, i) => ({ question: questions[i], answer })),
-    history: [{ status: "submitted", at }],
-  };
-  db.claims.unshift(claim);
-  if (item.status === "in_custody") item.status = "claim_pending";
-  emit();
-  return delay(claim);
-}
-
-function setClaimStatus(claim: Claim, status: ClaimStatus) {
-  claim.status = status;
-  claim.history.push({ status, at: nowIso() });
-}
-
-/** After a claim closes without approval: if nobody else is still claiming the item, it's back on the shelf. */
-function releaseIfNoOpenClaims(itemId: string) {
-  const item = db.foundItems.find((i) => i.id === itemId);
-  const stillClaimed = db.claims.some((c) => c.itemId === itemId && (c.status === "pending" || c.status === "needs_info"));
-  if (item?.status === "claim_pending" && !stillClaimed) item.status = "in_custody";
-}
-
-export async function withdrawClaim(id: string) {
-  const c = db.claims.find((x) => x.id === id);
-  if (c) {
-    setClaimStatus(c, "withdrawn");
-    releaseIfNoOpenClaims(c.itemId);
-  }
-  emit();
-  return delay(c);
-}
-
-/** Admin decision. In production this is one database function that checks the transition. */
-export async function decideClaim(id: string, decision: "approve" | "reject" | "request_info", reason?: string) {
-  const c = db.claims.find((x) => x.id === id);
-  if (!c) throw new Error("Claim not found.");
-  const subject = db.foundItems.find((i) => i.id === c.itemId)?.title;
-  record(
-    decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "asked",
-    decision === "approve" ? `approved claim ${c.id}` : decision === "reject" ? `rejected claim ${c.id}` : `asked for more details on claim ${c.id}`,
-    subject,
-    `/admin/claims/${c.id}`,
-  );
-  if (decision === "approve") {
-    setClaimStatus(c, "approved");
-    const pickup = new Date();
-    pickup.setDate(pickup.getDate() + db.OFFICE.pickupDays + 2);
-    c.pickupBy = pickup.toLocaleDateString("en-CA");
-    const item = db.foundItems.find((i) => i.id === c.itemId);
-    if (item) item.status = "ready_for_pickup";
-    // Approving one claim closes the other open claims on the same item.
-    for (const other of otherOpenClaims(c)) {
-      other.decisionReason = "Another claim for this item was approved.";
-      setClaimStatus(other, "rejected");
-    }
-  } else if (decision === "reject") {
-    c.decisionReason = reason;
-    setClaimStatus(c, "rejected");
-    releaseIfNoOpenClaims(c.itemId);
-  } else {
-    setClaimStatus(c, "needs_info");
-    if (reason) db.messages.push({ id: crypto.randomUUID(), claimId: id, from: "office", body: reason, at: nowIso() });
-  }
-  emit();
-  return delay(c);
-}
-
-export async function confirmRelease(claimId: string) {
-  const c = db.claims.find((x) => x.id === claimId);
-  if (!c) throw new Error("Claim not found.");
-  setClaimStatus(c, "completed");
-  const item = db.foundItems.find((i) => i.id === c.itemId);
-  if (item) {
-    item.status = "returned";
-    item.returnedOn = todayIso();
-    record("released", `released ${item.id} to ${getProfile(c.claimantId)?.fullName ?? "the claimant"}`, item.title, `/admin/items/${item.id}`);
-  }
-  const report = c.linkedReportId && db.lostReports.find((r) => r.id === c.linkedReportId);
-  if (report) report.status = "resolved";
-  emit();
-  return delay(c);
-}
-
-export async function returnToCustody(claimId: string) {
-  const c = db.claims.find((x) => x.id === claimId);
-  if (!c) throw new Error("Claim not found.");
-  setClaimStatus(c, "expired");
-  const item = db.foundItems.find((i) => i.id === c.itemId);
-  if (item) {
-    item.status = "in_custody";
-    record("returned_to_custody", `put ${item.id} back on the shelf (claim ${c.id} not picked up)`, item.title, `/admin/items/${item.id}`);
-  }
-  emit();
-  return delay(c);
-}
-
-// ---- messages (claim-scoped only) --------------------------------------------------
-export const listMessages = (claimId: string) =>
-  delay(db.messages.filter((m) => m.claimId === claimId).sort((a, b) => a.at.localeCompare(b.at)));
-
-export async function sendMessage(claimId: string, from: Message["from"], body: string) {
-  const m: Message = { id: crypto.randomUUID(), claimId, from, body, at: nowIso() };
-  db.messages.push(m);
-  const c = db.claims.find((x) => x.id === claimId);
-  if (c && from === "office" && c.status === "pending") setClaimStatus(c, "needs_info");
-  if (c && from === "owner" && c.status === "needs_info") setClaimStatus(c, "pending");
-  emit();
-  return delay(m);
-}
-
-export interface Thread {
-  claim: Claim;
-  itemTitle: string;
-  photo?: string;
-  last: Message;
-  count: number;
-  /**
-   * This viewer owes a reply: for students, the office asked a question (claim is "needs info");
-   * for the office, the claimant answered and the claim is back to "pending".
-   */
-  awaitingYou: boolean;
-  /** Office view only: claimant's name. Students only ever see "Office". */
-  claimantName?: string;
-}
-
-/** Claim conversations for the Messages tab. Students see their own claims; office staff see all. */
-export function listThreads(viewer: "owner" | "office", userId?: string): Promise<Thread[]> {
-  const out: Thread[] = [];
-  for (const claim of db.claims) {
-    if (viewer === "owner" && claim.claimantId !== userId) continue;
-    const msgs = db.messages.filter((m) => m.claimId === claim.id).sort((a, b) => a.at.localeCompare(b.at));
-    if (!msgs.length) continue;
-    const item = db.foundItems.find((i) => i.id === claim.itemId);
-    const last = msgs[msgs.length - 1];
-    out.push({
-      claim,
-      itemTitle: item?.title ?? claim.itemId,
-      photo: item?.photo,
-      last,
-      count: msgs.length,
-      awaitingYou: last.from !== viewer && (viewer === "owner" ? claim.status === "needs_info" : claim.status === "pending"),
-      claimantName: viewer === "office" ? getProfile(claim.claimantId)?.fullName : undefined,
-    });
-  }
-  return delay(out.sort((a, b) => b.last.at.localeCompare(a.last.at)));
-}
-
-// ---- notifications (separate lists for students and office staff) -------------------
-const inbox = (who: "student" | "office") => (who === "office" ? db.adminNotifications : db.notifications);
-export const listNotifications = (who: "student" | "office" = "student") => delay([...inbox(who)]);
-export const unreadCount = (who: "student" | "office" = "student") => inbox(who).filter((n) => !n.read).length;
-export async function markNotificationsRead(ids?: string[], who: "student" | "office" = "student") {
-  inbox(who).forEach((n: Notification) => {
-    if (!ids || ids.includes(n.id)) n.read = true;
-  });
-  emit();
-  return delay(true);
-}
 
 // ---- profile summary ------------------------------------------------------------------
 export function profileStats(user: Profile) {

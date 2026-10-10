@@ -82,7 +82,7 @@ export const lostReportSchema = z.object({
 export const claimSchema = z.object({
   answers: z
     .array(z.string().trim().min(3, "Answer this question.").max(500).refine(noContactDetails, "Remove contact details or ID numbers."))
-    .length(3),
+    .min(1),
 });
 
 export const foundItemSchema = z.object({
