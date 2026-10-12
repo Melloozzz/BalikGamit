@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { auth, profileOf, rest, rpc, storage, userFromToken, type Env } from "./supabase";
 import { processJobs } from "./jobs";
 import { emailUnreadMessages } from "./email";
+import { comingSoon } from "./comingSoon";
 
 type Vars = { userId: string };
 
@@ -133,7 +134,15 @@ async function purge(env: Env, days: number) {
 }
 
 export default {
-  fetch: app.fetch,
+  // Every request comes here first (run_worker_first in wrangler.jsonc) so the coming-soon
+  // gate can answer it; otherwise /api goes to the API and the rest to the built app.
+  async fetch(req: Request, env: Env, ctx: ExecutionContext) {
+    const gate = await comingSoon(req, env);
+    if (gate) return gate;
+    const { pathname } = new URL(req.url);
+    if (pathname === "/api" || pathname.startsWith("/api/")) return app.fetch(req, env, ctx);
+    return env.ASSETS.fetch(req);
+  },
   // Proposal: the Cloudflare Cron Trigger keeps the Supabase project awake and runs the sweeps,
   // reminders, AI jobs and emails. The database functions apply the status rules.
   async scheduled(event: ScheduledController, env: Env, ctx: ExecutionContext) {

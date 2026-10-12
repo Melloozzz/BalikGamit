@@ -6,14 +6,19 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // React Router handles page URLs in the browser.
     "not_found_handling": "single-page-application",
-    // Only /api/* reaches the Worker code; everything else is a static file.
-    "run_worker_first": ["/api/*"]
+    // Every request reaches the Worker code first so the coming-soon gate can answer it
+    // (worker/comingSoon.ts); the Worker then hands non-API requests to the static files.
+    "run_worker_first": true
   },
   "vars": {
     "GROQ_MODEL": "openai/gpt-oss-120b",
-    "SUPABASE_URL": "https://tifeckfqokdktspjokqm.supabase.co"
+    "SUPABASE_URL": "https://tifeckfqokdktspjokqm.supabase.co",
+    // "true": the public domain shows the under-construction page; workers.dev and local dev
+    // stay open. Set to "false" and deploy to launch.
+    "COMING_SOON": "true"
   },
   // Cron (proposal: Cloudflare Cron Trigger): every 3 days keep Supabase awake and purge old records;
   // hourly expiry sweeps and reminders; every 5 minutes AI jobs and message emails.

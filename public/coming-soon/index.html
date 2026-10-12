@@ -1,0 +1,197 @@
+<!doctype html>
+<!-- Shown on the public domain while COMING_SOON is "true" in wrangler.jsonc (see worker/comingSoon.ts). -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="BalikGamit, the lost and found system for the RTU–Pasig campus, is under construction." />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>BalikGamit · Under construction</title>
+    <!-- This page does not load the fit-to-screen script from index.html, so plain vw is fine here. -->
+    <style>
+      @font-face {
+        font-family: "Space Grotesk";
+        font-weight: 700;
+        font-display: swap;
+        src: url("/coming-soon/space-grotesk-latin-700-normal.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        font-weight: 400;
+        font-display: swap;
+        src: url("/coming-soon/instrument-sans-latin-400-normal.woff2") format("woff2");
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        font-weight: 600;
+        font-display: swap;
+        src: url("/coming-soon/instrument-sans-latin-600-normal.woff2") format("woff2");
+      }
+      :root {
+        --navy-950: #001a49;
+        --overlay: #2c4f94;
+        --gold: #d9a713;
+        --teal: #073b55;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+        background: var(--overlay);
+        color: #fff;
+        font-family: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+        position: relative;
+        overflow-x: hidden;
+      }
+      .photo {
+        position: fixed;
+        inset: -12px;
+        width: calc(100% + 24px);
+        height: calc(100% + 24px);
+        object-fit: cover;
+        opacity: 0.45;
+        filter: blur(4px);
+        z-index: 0;
+      }
+      header,
+      main,
+      footer {
+        position: relative;
+        z-index: 1;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px clamp(16px, 5vw, 78px);
+        background: var(--navy-950);
+      }
+      .tile {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 9px;
+        background: #fff;
+        flex: none;
+      }
+      .tile img {
+        height: 33px;
+        width: auto;
+      }
+      .wordmark {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 700;
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: -0.01em;
+      }
+      .wordmark span {
+        color: var(--gold);
+      }
+      .sub {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #c9d3e8;
+      }
+      main {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        padding: 64px clamp(16px, 5vw, 78px) 80px;
+      }
+      .card {
+        max-width: 620px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 20px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        background: rgba(0, 26, 73, 0.55);
+        color: var(--gold);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .eyebrow::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--gold);
+        animation: pulse 1.8s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .eyebrow::before {
+          animation: none;
+        }
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-family: "Space Grotesk", sans-serif;
+        font-size: clamp(34px, 6vw, 48px);
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+      h1 span {
+        color: var(--gold);
+      }
+      p {
+        margin: 0 0 12px;
+        max-width: 54ch;
+        font-size: 18px;
+        color: #e3e8f3;
+        text-wrap: pretty;
+      }
+      footer {
+        padding: 20px clamp(16px, 5vw, 78px);
+        background: var(--navy-950);
+        font-size: 14px;
+        color: #c9d3e8;
+      }
+    </style>
+  </head>
+  <body>
+    <img class="photo" src="/coming-soon/campus.jpg" alt="" />
+    <header>
+      <span class="tile"><img src="/coming-soon/logo.png" alt="" /></span>
+      <span>
+        <span class="wordmark">Balik<span>Gamit</span></span>
+        <span class="sub">RTU–PASIG LOST &amp; FOUND</span>
+      </span>
+    </header>
+    <main>
+      <div class="card">
+        <p class="eyebrow">Under construction</p>
+        <h1>Something good is <span>coming back</span> to campus.</h1>
+        <p>We're building BalikGamit, the lost and found system for the RTU–Pasig campus. Soon you'll be able to report a lost item, browse what's been found, and claim what's yours.</p>
+        <p>Check back soon.</p>
+      </div>
+    </main>
+    <footer>© 2026 BalikGamit · RTU–Pasig Campus</footer>
+  </body>
+</html>
