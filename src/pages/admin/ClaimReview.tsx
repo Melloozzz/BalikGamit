@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Alert, BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
 import { MessageThread } from "../../components/MessageThread";
-import { ModalLink } from "../../components/Modal";
+import { Modal, ModalLink } from "../../components/Modal";
 import { decideClaim, getClaim, getProfile, itemFor, otherOpenClaims } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
@@ -11,6 +11,7 @@ import { useLoad } from "../../lib/useLoad";
 export function ClaimReview() {
   const { claimId = "" } = useParams();
   const claim = useLoad(() => getClaim(claimId), [claimId]);
+  const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
 
@@ -28,12 +29,16 @@ export function ClaimReview() {
   const others = otherOpenClaims(claim);
   const open = claim.status === "pending" || claim.status === "needs_info";
 
-  async function decide(d: "approve" | "reject" | "request_info") {
-    if (d === "reject" && !reason.trim()) return setError("Give a reason. The claimant will see it.");
-    if (d === "request_info" && !reason.trim()) return setError("Type the question you want to ask the claimant.");
-    setError("");
-    await decideClaim(claim!.id, d, reason.trim() || undefined);
+  async function reject() {
+    if (!reason.trim()) return setError("Give a reason. The claimant will see it.");
+    await decideClaim(claim!.id, "reject", reason.trim());
+    closeReject();
+  }
+
+  function closeReject() {
+    setRejecting(false);
     setReason("");
+    setError("");
   }
 
   return (
@@ -118,41 +123,54 @@ export function ClaimReview() {
         </section>
       </div>
 
-      {open ? (
-        <section className="panel panel--white" aria-labelledby="dec">
-          <h2 id="dec" className="panel__title">
-            Decision
-          </h2>
-          {error && <Alert>{error}</Alert>}
-          <TextAreaField
-            label="Reason or question (required to reject or ask; shown to the claimant)"
-            rows={2}
-            placeholder="e.g. Your answers didn't match the item's details."
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            maxLength={500}
-          />
-          <div className="form-actions">
-            <button className="btn btn--green" onClick={() => decide("approve")}>
-              <Icon name="check" size={18} strokeWidth={2.6} /> Approve
-            </button>
-            <button className="btn btn--outline-blue" onClick={() => decide("request_info")}>
-              <Icon name="message" size={18} /> Request more info
-            </button>
-            <button className="btn btn--outline-danger" onClick={() => decide("reject")}>
-              <Icon name="x" size={18} strokeWidth={2.4} /> Reject
-            </button>
-          </div>
-        </section>
-      ) : claim.status === "approved" ? (
-        <Alert tone="success">
-          Approved. When the claimant comes to the office, <Link to={`/admin/claims/${claim.id}/release`}>open the release checklist</Link>.
-        </Alert>
-      ) : (
-        <Alert tone="info">This claim is closed ({claim.status.replace("_", " ")}).</Alert>
-      )}
+      <div className="two-col">
+        {open ? (
+          <section className="panel panel--white decision" aria-labelledby="dec">
+            <h2 id="dec" className="panel__title">
+              Decision
+            </h2>
+            <p className="field__hint">To ask the claimant something first, send them a message. The claim shows as "Needs info" until they reply.</p>
+            <div className="form-actions">
+              <button className="btn btn--green" onClick={() => decideClaim(claim.id, "approve")}>
+                <Icon name="check" size={18} strokeWidth={2.6} /> Approve
+              </button>
+              <button className="btn btn--outline-danger" onClick={() => setRejecting(true)}>
+                <Icon name="x" size={18} strokeWidth={2.4} /> Reject
+              </button>
+            </div>
+            {rejecting && (
+              <Modal office narrow label="Reject this claim" eyebrow={`REJECT CLAIM · ${claim.id}`} title="Reject this claim?" onClose={closeReject}>
+                <TextAreaField
+                  label="Reason (shown to the claimant)"
+                  required
+                  rows={3}
+                  placeholder="e.g. Your answers didn't match the item's details."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={500}
+                  error={error}
+                />
+                <div className="form-actions form-actions--split">
+                  <button className="btn btn--outline" onClick={closeReject}>
+                    Cancel
+                  </button>
+                  <button className="btn btn--danger" onClick={reject}>
+                    Reject claim
+                  </button>
+                </div>
+              </Modal>
+            )}
+          </section>
+        ) : claim.status === "approved" ? (
+          <Alert tone="success">
+            Approved. When the claimant comes to the office, <Link to={`/admin/claims/${claim.id}/release`}>open the release checklist</Link>.
+          </Alert>
+        ) : (
+          <Alert tone="info">This claim is closed ({claim.status.replace("_", " ")}).</Alert>
+        )}
 
-      <MessageThread claimId={claim.id} viewer="office" open={open || claim.status === "approved"} />
+        <MessageThread claimId={claim.id} viewer="office" open={open || claim.status === "approved"} />
+      </div>
     </div>
   );
 }

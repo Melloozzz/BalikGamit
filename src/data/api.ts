@@ -172,8 +172,17 @@ export async function extendHold(id: string, days: number) {
 }
 
 // ---- lost reports (posted by students, live immediately) --------------------------
-export const listPublicLostReports = () =>
-  delay(db.lostReports.filter((r) => r.status === "active").map(({ privateDetails: _p, ...r }) => r));
+export function listPublicLostReports(f: ItemFilters = {}) {
+  const q = f.q?.trim().toLowerCase();
+  const reports = db.lostReports
+    .filter((r) => r.status === "active")
+    .filter((r) => !f.category || r.category === f.category)
+    .filter((r) => !f.location || r.location === f.location)
+    .filter((r) => !f.since || r.lostOn >= f.since)
+    .filter((r) => !q || `${r.title} ${r.description} ${r.category} ${r.location}`.toLowerCase().includes(q))
+    .sort((a, b) => b.lostOn.localeCompare(a.lostOn));
+  return delay(reports.map(({ privateDetails: _p, ...r }) => r));
+}
 
 export const listMyReports = (userId: string) => delay(db.lostReports.filter((r) => r.ownerId === userId));
 

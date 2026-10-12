@@ -1051,12 +1051,13 @@
   align-items: flex-end;
   gap: 12px;
 }
-.confirm-inline {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  font-size: 14px;
+/* Claim review: Decision sits beside the taller message thread, so keep it in view
+   just under the sticky top bar while the thread scrolls. Stacked on phones, so off there. */
+@media (min-width: 901px) {
+  .decision {
+    position: sticky;
+    top: calc(clamp(64px, calc(11 * var(--vh)), 96px) + 20px);
+  }
 }
 .panel {
   padding: 28px;

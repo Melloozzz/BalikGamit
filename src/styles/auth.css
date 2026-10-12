@@ -212,7 +212,8 @@
   border: 2px solid var(--error);
 }
 .auth .field__error {
-  color: #ffd2d2;
+  color: #ffb4b4;
+  font-weight: 600;
 }
 .auth-form--tight .input {
   min-height: 54px;
@@ -275,8 +276,14 @@
   text-decoration: underline;
   cursor: pointer;
 }
+/* Unticked on submit: outline the box and bolden the line so it's noticed. */
 .consent--error span {
-  color: #ffd2d2;
+  color: #ffb4b4;
+  font-weight: 600;
+}
+.consent--error input {
+  outline: 2px solid var(--error);
+  outline-offset: 1px;
 }
 .demo-note {
   font-size: 13px;

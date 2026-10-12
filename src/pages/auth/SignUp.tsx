@@ -55,7 +55,7 @@ export function SignUp() {
         />
         <PasswordField label="Password" autoComplete="new-password" placeholder="Enter your password" value={form.password} onChange={set("password")} error={errors.password} />
         <PasswordField label="Confirm Password" autoComplete="new-password" placeholder="Re-enter your password" value={form.confirm} onChange={set("confirm")} error={errors.confirm} />
-        <label className={`consent ${errors.consent ? "consent--error" : ""}`}>
+        <label className={`consent ${errors.consent && !form.consent ? "consent--error" : ""}`}>
           <input type="checkbox" checked={form.consent} onChange={set("consent")} />
           <span>
             I agree to the{" "}
@@ -73,7 +73,7 @@ export function SignUp() {
             , including that my report descriptions are shared with an AI matching service.
           </span>
         </label>
-        {errors.consent && (
+        {errors.consent && !form.consent && (
           <p className="field__error" role="alert">
             {errors.consent}
           </p>

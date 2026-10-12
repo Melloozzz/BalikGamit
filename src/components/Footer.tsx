@@ -38,7 +38,7 @@ export function SiteFooter() {
             QUICK LINKS
           </h2>
           <Link to="/">Home</Link>
-          <Link to="/about#how-it-works">How it Works</Link>
+          <Link to="/about">About us</Link>
           <Link to="/login">Sign In</Link>
           <Link to="/signup">Create an Account</Link>
         </nav>

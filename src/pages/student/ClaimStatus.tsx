@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading } from "../../components/ui";
 import { MessageThread } from "../../components/MessageThread";
+import { Modal } from "../../components/Modal";
 import { OFFICE, getClaim, itemFor, withdrawClaim } from "../../data/api";
 import type { Claim } from "../../data/types";
 import { longDate, longDateTime } from "../../lib/format";
@@ -77,22 +78,33 @@ export function ClaimStatusPage() {
         </div>
         <div className="claim-head__side">
           <ClaimBadge status={claim.status} large />
-          {open &&
-            (confirming ? (
-              <span className="confirm-inline">
-                Withdraw this claim?
-                <button className="link-btn link-btn--danger" onClick={() => withdrawClaim(claim.id)}>
+          {open && (
+            <button className="btn btn--sm btn--outline-danger" onClick={() => setConfirming(true)}>
+              Withdraw claim
+            </button>
+          )}
+          {open && confirming && (
+            <Modal narrow label="Withdraw this claim" eyebrow={`WITHDRAW CLAIM · ${claim.id}`} title="Withdraw this claim?" onClose={() => setConfirming(false)}>
+              <p>
+                The office will stop reviewing your claim for <strong>{item.title}</strong>. You can file a new claim later while the
+                office is still holding it.
+              </p>
+              <div className="form-actions form-actions--split">
+                <button className="btn btn--outline" onClick={() => setConfirming(false)}>
+                  Keep my claim
+                </button>
+                <button
+                  className="btn btn--danger"
+                  onClick={async () => {
+                    await withdrawClaim(claim.id);
+                    setConfirming(false);
+                  }}
+                >
                   Yes, withdraw
                 </button>
-                <button className="link-btn" onClick={() => setConfirming(false)}>
-                  Keep it
-                </button>
-              </span>
-            ) : (
-              <button className="link-btn link-btn--danger" onClick={() => setConfirming(true)}>
-                Withdraw claim
-              </button>
-            ))}
+              </div>
+            </Modal>
+          )}
         </div>
       </section>
 

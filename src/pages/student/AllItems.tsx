@@ -13,15 +13,7 @@ export function AllItems({ kind }: { kind: "found" | "lost" }) {
   const [sort, setSort] = useState<"new" | "old">("new");
 
   const found = useLoad(() => (kind === "found" ? listFoundItems({ q, category, location }) : Promise.resolve([])), [kind, q, category, location]);
-  const lostAll = useLoad(() => (kind === "lost" ? listPublicLostReports() : Promise.resolve([])), [kind]);
-
-  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const lost = lostAll?.filter(
-    (r) =>
-      (!category || r.category === category) &&
-      (!location || r.location === location) &&
-      words.every((w) => `${r.title} ${r.description} ${r.category}`.toLowerCase().includes(w)),
-  );
+  const lost = useLoad(() => (kind === "lost" ? listPublicLostReports({ q, category, location }) : Promise.resolve([])), [kind, q, category, location]);
 
   const rows =
     kind === "found"

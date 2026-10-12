@@ -22,7 +22,7 @@ export function Home() {
   const [range, setRange] = useState("");
 
   const found = useLoad(() => listFoundItems({ q, category, location, since: sinceFor(range) }), [q, category, location, range]);
-  const lost = useLoad(() => listPublicLostReports(), []);
+  const lost = useLoad(() => listPublicLostReports({ q, category, location, since: sinceFor(range) }), [q, category, location, range]);
 
   return (
     <div className="container stack-lg home">
@@ -101,6 +101,8 @@ export function Home() {
         </div>
         {!lost ? (
           <Loading />
+        ) : !lost.length ? (
+          <EmptyState title="No lost items match these filters." />
         ) : (
           <div className="card-grid">
             {lost.slice(0, 3).map((r) => (
