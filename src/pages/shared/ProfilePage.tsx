@@ -3,7 +3,8 @@ import { Icon } from "../../components/Icon";
 import { initials } from "../../components/ProfileMenu";
 import { BackButton, PageHead } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { OFFICE, profileStats, useDataVersion } from "../../data/api";
+import { OFFICE, getProfileStats } from "../../data/api";
+import { useLoad } from "../../lib/useLoad";
 import { longDate } from "../../lib/format";
 
 const roleLabel = { student: "Student", faculty: "Faculty", staff: "Staff", admin: "Admin", super_admin: "Super admin" } as const;
@@ -11,10 +12,9 @@ const roleLabel = { student: "Student", faculty: "Faculty", staff: "Staff", admi
 /** "View profile" from the account menu. Read-only summary; edits happen in Settings. */
 export function ProfilePage({ area }: { area: "student" | "office" }) {
   const { user } = useAuth();
-  useDataVersion();
+  const stats = useLoad(() => (user ? getProfileStats(user) : Promise.resolve([])), [user?.id]) ?? [];
   if (!user) return null;
   const office = area === "office";
-  const stats = profileStats(user);
   const base = office ? "/admin" : "";
 
   return (

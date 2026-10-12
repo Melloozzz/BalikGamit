@@ -27,8 +27,16 @@ export const one = <T,>(v: T | T[] | null | undefined): T | undefined => (Array.
 const ids = new Map<string, string>();
 export const remember = (ref: string, id: string) => ids.set(ref, id);
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * The column a link's key belongs to. Notifications sent before Oct 11 linked by row id
+ * (/claims/<uuid>); current ones use the reference number. Both keep working.
+ */
+export const keyColumn = (key: string): "id" | "ref" => (UUID.test(key) ? "id" : "ref");
+
 type RefTable = "found_items" | "lost_reports" | "claims";
 export async function idOf(table: RefTable, ref: string): Promise<string> {
+  if (UUID.test(ref)) return ref;
   const known = ids.get(ref);
   if (known) return known;
   const row = must(await supabase.from(table).select("id").eq("ref", ref).maybeSingle()) as { id: string } | null;

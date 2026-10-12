@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "./Icon";
-import { listMessages, sendMessage } from "../data/api";
+import { emit } from "../data/events";
+import { listMessages, sendMessage, subscribeToMessages } from "../data/api";
 import { blockMessage, findBlockedDetail } from "../lib/validation";
 import { shortDateTime } from "../lib/format";
 import { useLoad } from "../lib/useLoad";
 
 /**
- * Claim-scoped chat. People appear only by alias ("Office" / "Owner"). In production the list
- * subscribes to Supabase Realtime inserts on `messages` for this claim; RLS limits who can read it.
+ * Claim-scoped chat. People appear only by alias ("Office" / "Owner"). New messages arrive live
+ * through Supabase Realtime; row-level security limits the thread to the claimant and the office.
  */
 export function MessageThread({ claimId, viewer, open }: { claimId: string; viewer: "owner" | "office"; open: boolean }) {
   const msgs = useLoad(() => listMessages(claimId), [claimId]);
+  useEffect(() => subscribeToMessages(claimId, emit), [claimId]);
+  const [busy, setBusy] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState("");
   // Scroll only the thread box to the newest message. scrollIntoView would also scroll the page.
@@ -30,8 +33,16 @@ export function MessageThread({ claimId, viewer, open }: { claimId: string; view
     const blocked = findBlockedDetail(body);
     if (blocked) return setError(blockMessage[blocked]);
     setError("");
-    await sendMessage(claimId, viewer, body);
-    setText("");
+    setBusy(true);
+    try {
+      await sendMessage(claimId, body);
+      setText("");
+    } catch (err) {
+      // The database also blocks contact details, rate-limits, and refuses closed threads.
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   const title = viewer === "owner" ? "Messages with the Office" : "Messages with the claimant";
@@ -75,7 +86,7 @@ export function MessageThread({ claimId, viewer, open }: { claimId: string; view
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <button className="btn btn--navy">
+            <button className="btn btn--navy" disabled={busy}>
               <Icon name="send" size={18} /> Send
             </button>
           </div>

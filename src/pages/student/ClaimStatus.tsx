@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import { Icon } from "../../components/Icon";
-import { BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading } from "../../components/ui";
+import { Alert, BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading } from "../../components/ui";
 import { MessageThread } from "../../components/MessageThread";
 import { Modal } from "../../components/Modal";
-import { OFFICE, getClaim, itemFor, withdrawClaim } from "../../data/api";
+import { OFFICE, getClaim, withdrawClaim } from "../../data/api";
 import type { Claim } from "../../data/types";
 import { longDate, longDateTime } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
+import { useAction } from "../../lib/useAction";
 
 type Step = { key: string; label: string; detail: string; state: "done" | "current" | "todo" | "stopped" };
 
@@ -44,6 +45,7 @@ export function ClaimStatusPage() {
   const { claimId = "" } = useParams();
   const claim = useLoad(() => getClaim(claimId), [claimId]);
   const [confirming, setConfirming] = useState(false);
+  const withdraw = useAction();
 
   if (claim === undefined) return <Loading />;
   if (claim === null)
@@ -53,7 +55,7 @@ export function ClaimStatusPage() {
         <EmptyState title="We couldn't find that claim." />
       </div>
     );
-  const item = itemFor(claim.itemId)!;
+  const item = claim.item;
   const open = claim.status === "pending" || claim.status === "needs_info";
   const threadOpen = open || claim.status === "approved";
 
@@ -89,18 +91,22 @@ export function ClaimStatusPage() {
                 The office will stop reviewing your claim for <strong>{item.title}</strong>. You can file a new claim later while the
                 office is still holding it.
               </p>
+              {withdraw.error && <Alert>{withdraw.error}</Alert>}
               <div className="form-actions form-actions--split">
-                <button className="btn btn--outline" onClick={() => setConfirming(false)}>
+                <button className="btn btn--outline" onClick={() => setConfirming(false)} disabled={withdraw.busy}>
                   Keep my claim
                 </button>
                 <button
                   className="btn btn--danger"
-                  onClick={async () => {
-                    await withdrawClaim(claim.id);
-                    setConfirming(false);
-                  }}
+                  disabled={withdraw.busy}
+                  onClick={() =>
+                    withdraw.run(async () => {
+                      await withdrawClaim(claim.id);
+                      setConfirming(false);
+                    })
+                  }
                 >
-                  Yes, withdraw
+                  {withdraw.busy ? "Withdrawing…" : "Yes, withdraw"}
                 </button>
               </div>
             </Modal>
@@ -126,7 +132,7 @@ export function ClaimStatusPage() {
           </ol>
           <p className="note-box">
             {claim.status === "approved"
-              ? `Pick up the item at ${OFFICE.name} by ${longDate(claim.pickupBy!)}. Bring your RTU ID.`
+              ? `Pick up the item at ${claim.pickupOffice ?? OFFICE.name} by ${longDate(claim.pickupBy!)}. Bring your RTU ID.`
               : `If your claim is approved, pick up the item at ${OFFICE.name} within ${OFFICE.pickupDays} working days. Bring your RTU ID.`}
           </p>
         </section>

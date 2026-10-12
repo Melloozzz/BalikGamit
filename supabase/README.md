@@ -7,6 +7,7 @@ The live database is the Supabase project `tifeckfqokdktspjokqm`. These files ar
 | `migrations/20261010000000_baseline.sql` | The whole database as of Oct 10, 2026: tables, status types, functions, triggers, row-level security policies, permissions, storage buckets and photo policies, and the sign-up trigger. Generated from the live project. |
 | `seed.sql` | Starting data: office settings, categories, locations, proof questions, allowed status changes. No personal data. |
 | `history/` | The two scripts that were run on Oct 10 to get the database to the baseline. A record only; don't run them again. |
+| `tests/status_rules.sql` | Tries every status change on claims, found items and lost reports and checks only the allowed ones go through, plus that a student can't change a status or post as someone else directly. Safe on the live project: it always rolls back. Paste it into the SQL Editor; the error message is the result (`RESULT: PASS ...` or `RESULT: FAIL ...`). Last run Oct 10, 2026: PASS, 84 changes checked. |
 
 ## Rules
 

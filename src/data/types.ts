@@ -1,5 +1,5 @@
 // Domain types. Status values mirror the workflow in the project plan and the
-// database enums, so swapping the mock data layer for Supabase changes no UI code.
+// database enums (see supabase/migrations). The data layer maps database rows to these.
 
 /** Faculty and staff use BalikGamit the same way students do; only the office roles see admin pages. */
 export type Role = "student" | "faculty" | "staff" | "admin" | "super_admin";
@@ -91,7 +91,18 @@ export interface Claim {
   linkedReportId?: string;
   decisionReason?: string;
   pickupBy?: string;
+  /** Where to pick it up, set when the office approves. */
+  pickupOffice?: string;
   history: { status: ClaimStatus | "submitted" | "under_review"; at: string }[];
+}
+
+/** A claim as the data layer returns it: with the item, and for office staff the claimant. */
+export interface LoadedClaim extends Claim {
+  item: FoundItem;
+  /** Office only. */
+  claimant?: { fullName: string; email: string };
+  /** Office only: other claims on the same item still pending or waiting on info. */
+  others?: string[];
 }
 
 export interface Message {

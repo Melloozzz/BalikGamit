@@ -40,7 +40,7 @@ export function Inbox({ who, only }: { who: "student" | "office"; only?: "messag
         actions={
           tab === "notifications" &&
           unread.length > 0 && (
-            <button className="link-btn" onClick={() => markNotificationsRead(undefined, who)}>
+            <button className="link-btn" onClick={() => void markNotificationsRead(undefined, who).catch(() => undefined)}>
               Mark all as read
             </button>
           )
@@ -64,7 +64,7 @@ export function Inbox({ who, only }: { who: "student" | "office"; only?: "messag
           <ul className={`notif-list ${office ? "notif-list--office" : ""}`}>
             {notes.map((n) => (
               <li key={n.id}>
-                <Link to={n.href} className={`notif ${n.read ? "" : "notif--unread"}`} onClick={() => markNotificationsRead([n.id], who)}>
+                <Link to={n.href} className={`notif ${n.read ? "" : "notif--unread"}`} onClick={() => void markNotificationsRead([n.id], who).catch(() => undefined)}>
                   <span className={`notif__icon tone-${look[n.kind].tone}`}>
                     <Icon name={look[n.kind].icon} size={22} />
                   </span>

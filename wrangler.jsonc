@@ -13,8 +13,11 @@
   },
   "vars": {
     "GROQ_MODEL": "openai/gpt-oss-120b",
-    "SUPABASE_URL": "https://YOUR-PROJECT.supabase.co"
+    "SUPABASE_URL": "https://tifeckfqokdktspjokqm.supabase.co"
   },
-  // Cron: keep-alive ping, report expiry sweep, reminders, AI job retries.
-  "triggers": { "crons": ["0 3 */3 * *", "0 * * * *"] }
+  // Cron (proposal: Cloudflare Cron Trigger): every 3 days keep Supabase awake and purge old records;
+  // hourly expiry sweeps and reminders; every 5 minutes AI jobs and message emails.
+  // Secrets (wrangler secret put): SUPABASE_SERVICE_ROLE_KEY, GROQ_API_KEY, and optionally RESEND_API_KEY.
+  // EMAIL_FROM (e.g. "BalikGamit <no-reply@your-domain>") can be a var or a secret.
+  "triggers": { "crons": ["0 3 */3 * *", "0 * * * *", "*/5 * * * *"] }
 }

@@ -70,8 +70,10 @@ describe("schemas", () => {
     expect(r.success).toBe(false);
   });
 
-  it("claim needs exactly three answers", () => {
-    expect(claimSchema.safeParse({ answers: ["Initials inside", "A movie ticket", "Library, Tuesday"] }).success).toBe(true);
-    expect(claimSchema.safeParse({ answers: ["Initials inside", "A movie ticket"] }).success).toBe(false);
+  // The number of questions comes from the office's proof_questions, so any count of one or more works.
+  it("claim needs every question answered", () => {
+    expect(claimSchema.safeParse({ answers: ["Initials inside", "A movie ticket"] }).success).toBe(true);
+    expect(claimSchema.safeParse({ answers: ["Initials inside", ""] }).success).toBe(false);
+    expect(claimSchema.safeParse({ answers: [] }).success).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { ItemPhoto, Loading } from "../../components/ui";
-import { getClaim, itemFor } from "../../data/api";
+import { getClaim } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
@@ -9,7 +9,7 @@ export function ClaimSubmitted() {
   const { claimId = "" } = useParams();
   const claim = useLoad(() => getClaim(claimId), [claimId]);
   if (!claim) return <Loading />;
-  const item = itemFor(claim.itemId)!;
+  const item = claim.item;
 
   return (
     <div className="container container--narrow">

@@ -1,8 +1,8 @@
 import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
 import { BackButton, ClaimBadge, EmptyState, ItemPhoto, Loading, PageHead } from "../../components/ui";
-import { OFFICE, itemFor, listMyClaims } from "../../data/api";
-import type { Claim } from "../../data/types";
+import { OFFICE, listMyClaims } from "../../data/api";
+import type { LoadedClaim as Claim } from "../../data/types";
 import { useAuth } from "../../auth/AuthContext";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
@@ -12,11 +12,11 @@ function subline(c: Claim) {
     case "pending":
       return `Filed ${longDate(c.filedOn)} · Waiting for the office to review`;
     case "approved":
-      return `Pick up by ${longDate(c.pickupBy!)} at ${OFFICE.name}`;
+      return `Pick up by ${longDate(c.pickupBy!)} at ${c.pickupOffice ?? OFFICE.name}`;
     case "rejected":
       return c.decisionReason ?? "Rejected by the office";
     case "completed":
-      return `Picked up ${longDate(c.history[c.history.length - 1].at)}`;
+      return c.history.length ? `Picked up ${longDate(c.history[c.history.length - 1].at)}` : "Picked up";
     default:
       return `Filed ${longDate(c.filedOn)}`;
   }
@@ -36,7 +36,7 @@ export function MyClaims() {
         <div className="callout callout--amber">
           <Icon name="message" size={26} />
           <p>
-            <b>The office has a question about your claim</b> for {itemFor(needsInfo.itemId)?.title}.
+            <b>The office has a question about your claim</b> for {needsInfo.item.title}.
           </p>
           <Link to={`/claims/${needsInfo.id}`} state={{ from: "/claims" }} className="btn btn--navy btn--sm">
             Reply now
@@ -50,7 +50,7 @@ export function MyClaims() {
       ) : (
         <ul className="row-list">
           {claims.map((c) => {
-            const item = itemFor(c.itemId)!;
+            const item = c.item;
             return (
               <li key={c.id}>
                 <Link to={`/claims/${c.id}`} state={{ from: "/claims" }} className={`row-card ${c.status === "needs_info" ? "row-card--attention" : ""}`}>
