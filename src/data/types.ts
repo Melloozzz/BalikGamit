@@ -52,6 +52,10 @@ export interface FoundItem {
   holdUntil?: string;
   /** Donated or disposed after the holding period. */
   disposal?: { method: "donated" | "disposed"; note: string; by: string; at: string };
+  /** Office lists only: claims still pending, waiting on info, or approved. */
+  openClaims?: number;
+  /** Office lists only: hidden from students by the office. */
+  hidden?: boolean;
 }
 
 export interface LostReport {

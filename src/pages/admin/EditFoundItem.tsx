@@ -59,8 +59,8 @@ export function EditFoundItem() {
             photo: item.photo,
           }}
           submitLabel="Save changes"
-          onSubmit={async ({ locationDetail, shelfTag, ...v }) => {
-            await updateFoundItem(item.id, { ...v, locationDetail: locationDetail || undefined, shelfTag: shelfTag || undefined });
+          onSubmit={async ({ photo: _preview, ...v }) => {
+            await updateFoundItem(item.id, v);
             back();
           }}
           actions={
