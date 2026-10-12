@@ -1,3 +1,6 @@
 # Copy to .dev.vars for `wrangler dev`. Never commit the real file.
 GROQ_API_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+# Optional: email for unread claim messages (https://resend.com)
+RESEND_API_KEY=
+EMAIL_FROM=

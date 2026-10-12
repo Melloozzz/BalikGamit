@@ -7,7 +7,8 @@ import { Drawer, type NavItem } from "./Drawer";
 import { ProfileMenu } from "../components/ProfileMenu";
 import { NotificationMenu } from "../components/NotificationMenu";
 import { useAuth } from "../auth/AuthContext";
-import { listThreads, unreadCount, useDataVersion } from "../data/api";
+import { listThreads } from "../data/api";
+import { useUnread } from "../lib/useUnread";
 import { TabBar } from "../components/TabBar";
 import { useLoad } from "../lib/useLoad";
 
@@ -23,8 +24,7 @@ export function StudentLayout() {
   const [open, setOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  useDataVersion();
-  const unread = unreadCount();
+  const unread = useUnread(user?.id);
   const threads = useLoad(() => listThreads("owner", user?.id), [user?.id]);
   const waiting = threads ? threads.filter((t) => t.awaitingYou).length : 0;
 

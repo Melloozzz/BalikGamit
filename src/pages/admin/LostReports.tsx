@@ -4,7 +4,7 @@ import { Icon } from "../../components/Icon";
 import { ModalLink } from "../../components/Modal";
 import { Filter, SearchBox, Tabs } from "../../components/Filters";
 import { BackButton, EmptyState, ItemPhoto, Loading, PageHead, ReportBadge } from "../../components/ui";
-import { CATEGORIES, LOCATIONS, dashboardCounts, listAllLostReports } from "../../data/api";
+import { CATEGORIES, LOCATIONS, countFlaggedReports, listAllLostReports } from "../../data/api";
 import type { LostReportStatus } from "../../data/types";
 import { shortDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
@@ -21,6 +21,7 @@ const IN_VIEW: Record<View, (s: LostReportStatus) => boolean> = {
 /** Office view of every lost report students have posted. */
 export function LostReports() {
   const reports = useLoad(() => listAllLostReports(), []);
+  const flagged = useLoad(() => countFlaggedReports(), []) ?? 0;
   const [view, setView] = useState<View>("active");
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
@@ -36,7 +37,6 @@ export function LostReports() {
   );
   const shown = filtered.filter((r) => IN_VIEW[view](r.status));
   const count = (k: View) => filtered.filter((r) => IN_VIEW[k](r.status)).length;
-  const flagged = dashboardCounts().flagged;
 
   return (
     <div className="container stack-lg">

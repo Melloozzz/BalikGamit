@@ -4,13 +4,13 @@ import { Icon } from "../../components/Icon";
 import { Alert, BackLink, ClaimBadge, EmptyState, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
 import { MessageThread } from "../../components/MessageThread";
 import { Modal, ModalLink } from "../../components/Modal";
-import { decideClaim, getClaim, getProfile, itemFor, otherOpenClaims } from "../../data/api";
+import { decideClaim, getClaim } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
 
 export function ClaimReview() {
   const { claimId = "" } = useParams();
-  const claim = useLoad(() => getClaim(claimId), [claimId]);
+  const claim = useLoad(() => getClaim(claimId, { office: true }), [claimId]);
   const [dialog, setDialog] = useState<"approve" | "reject" | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
@@ -28,9 +28,9 @@ export function ClaimReview() {
       </div>
     );
 
-  const item = itemFor(claim.itemId)!;
-  const who = getProfile(claim.claimantId);
-  const others = otherOpenClaims(claim);
+  const item = claim.item;
+  const who = claim.claimant;
+  const others = claim.others ?? [];
   const open = claim.status === "pending" || claim.status === "needs_info";
 
   async function decide(d: "approve" | "reject") {
@@ -83,7 +83,7 @@ export function ClaimReview() {
             <b>
               {others.length} other pending claim{others.length > 1 ? "s" : ""}
             </b>{" "}
-            ({others.map((o) => o.id).join(", ")}). Approving this one closes the other{others.length > 1 ? "s" : ""}.
+            ({others.join(", ")}). Approving this one closes the other{others.length > 1 ? "s" : ""}.
           </p>
         </div>
       )}
@@ -167,7 +167,7 @@ export function ClaimReview() {
                       <b>
                         {others.length} other claim{others.length > 1 ? "s" : ""}
                       </b>{" "}
-                      on this item ({others.map((o) => o.id).join(", ")}).
+                      on this item ({others.join(", ")}).
                     </>
                   )}
                 </p>

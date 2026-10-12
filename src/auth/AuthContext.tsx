@@ -15,6 +15,8 @@ interface AuthState {
   updatePassword: (password: string) => Promise<void>;
   /** Re-read the signed-in profile, e.g. after changing your name in Settings. */
   refreshProfile: () => Promise<void>;
+  /** True when `password` is the signed-in person's current password. */
+  checkPassword: (password: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -131,9 +133,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.session) setUser(await loadProfile(data.session.user.id));
   }, []);
 
+  const checkPassword = useCallback(
+    async (password: string) => {
+      if (!user) return false;
+      const { error } = await supabase.auth.signInWithPassword({ email: user.email, password });
+      return !error;
+    },
+    [user],
+  );
+
   const value = useMemo(
-    () => ({ user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile }),
-    [user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile],
+    () => ({ user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile, checkPassword }),
+    [user, ready, signIn, signUp, signOut, requestPasswordReset, updatePassword, refreshProfile, checkPassword],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

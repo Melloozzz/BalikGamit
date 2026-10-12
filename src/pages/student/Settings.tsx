@@ -3,13 +3,14 @@ import { Link, useNavigate } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Alert, BackButton, PageHead, PasswordField, TextField } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
+import { deleteMyAccount, updateMyName } from "../../data/api";
 import { fieldErrors, resetPasswordSchema } from "../../lib/validation";
 
 export function Settings({ area = "student" }: { area?: "student" | "office" }) {
   const office = area === "office";
   const panel = office ? "panel panel--white" : "panel panel--gray";
   const btn = office ? "btn btn--blue" : "btn btn--navy";
-  const { user, updatePassword, signOut } = useAuth();
+  const { user, updatePassword, signOut, refreshProfile, checkPassword } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState(user?.fullName ?? "");
   const [saved, setSaved] = useState("");
@@ -18,10 +19,18 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
   const [prefs, setPrefs] = useState({ matches: true, claims: true, newClaims: true, replies: true, flagged: false });
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  function saveProfile(e: FormEvent) {
+  const [error, setError] = useState("");
+
+  async function saveProfile(e: FormEvent) {
     e.preventDefault();
-    // Production: supabase.from("profiles").update({ full_name: name }).eq("id", user.id)
-    setSaved("Profile saved.");
+    setError("");
+    try {
+      await updateMyName(user!.id, name);
+      await refreshProfile();
+      setSaved("Profile saved.");
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   async function changePassword(e: FormEvent) {
@@ -31,7 +40,12 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
     if (!pw.current) errs.current = "Enter your current password.";
     setPwErrors(errs);
     if (Object.keys(errs).length) return;
-    await updatePassword(pw.password);
+    if (!(await checkPassword(pw.current))) return setPwErrors({ current: "That's not your current password." });
+    try {
+      await updatePassword(pw.password);
+    } catch (err) {
+      return setPwErrors({ password: (err as Error).message });
+    }
     setPw({ current: "", password: "", confirm: "" });
     setSaved("Password updated.");
   }
@@ -45,6 +59,7 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
         lead={office ? "Office tools, your profile, password and notifications." : "Manage your profile, password, and notifications."}
       />
       {saved && <Alert tone="success">{saved}</Alert>}
+      {error && <Alert>{error}</Alert>}
 
       {office && (
         <section className="panel panel--white tools" aria-labelledby="tools-h">
@@ -158,7 +173,13 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
               <button
                 className="btn btn--danger"
                 onClick={async () => {
-                  // Production: Worker route /api/account (service key) deletes the user and their rows.
+                  setError("");
+                  try {
+                    await deleteMyAccount();
+                  } catch (err) {
+                    setConfirmDelete(false);
+                    return setError((err as Error).message);
+                  }
                   await signOut();
                   navigate("/");
                 }}

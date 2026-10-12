@@ -2,17 +2,19 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Alert, BackLink, ItemBadge, ItemPhoto, Loading } from "../../components/ui";
-import { confirmRelease, getClaim, getProfile, itemFor, returnToCustody } from "../../data/api";
+import { confirmRelease, getClaim, returnToCustody } from "../../data/api";
 import { longDate } from "../../lib/format";
 import { useLoad } from "../../lib/useLoad";
+import { useAction } from "../../lib/useAction";
 
 export function ReleaseItem() {
   const { claimId = "" } = useParams();
-  const claim = useLoad(() => getClaim(claimId), [claimId]);
+  const claim = useLoad(() => getClaim(claimId, { office: true }), [claimId]);
   const [checks, setChecks] = useState({ id: false, item: false });
+  const action = useAction();
   if (!claim) return <Loading />;
-  const item = itemFor(claim.itemId)!;
-  const who = getProfile(claim.claimantId);
+  const item = claim.item;
+  const who = claim.claimant;
 
   if (claim.status !== "approved")
     return (
@@ -30,6 +32,7 @@ export function ReleaseItem() {
   return (
     <div className="container stack-lg">
       <BackLink to="/admin/claims">Claim Queue</BackLink>
+      {action.error && <Alert>{action.error}</Alert>}
       <header className="page-head">
         <div className="page-head__text">
           <p className="eyebrow">
@@ -82,7 +85,7 @@ export function ReleaseItem() {
               <span>Recorded when you confirm</span>
             </div>
           </div>
-          <button className="btn btn--green btn--lg" disabled={!checks.id || !checks.item} onClick={() => confirmRelease(claim.id)}>
+          <button className="btn btn--green btn--lg" disabled={!checks.id || !checks.item || action.busy} onClick={() => action.run(() => confirmRelease(claim.id))}>
             <Icon name="release" size={20} /> Confirm release
           </button>
           <p className="field__hint">Confirming closes the claim and its messages, marks the item Returned, and resolves the linked lost report.</p>
@@ -93,7 +96,7 @@ export function ReleaseItem() {
           <p className="dashed-box__title">Claimant didn't come by the deadline?</p>
           <p className="muted">Return the item to custody. The claim expires, and the claimant is notified.</p>
         </div>
-        <button className="btn btn--outline-danger" onClick={() => returnToCustody(claim.id)}>
+        <button className="btn btn--outline-danger" disabled={action.busy} onClick={() => action.run(() => returnToCustody(claim.id))}>
           Return to custody
         </button>
       </section>

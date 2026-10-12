@@ -2,22 +2,22 @@ import { Link, useNavigate } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
 import { Loading } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { listMyReports, unreadCount, useDataVersion } from "../../data/api";
+import { listMyReports, unreadCount } from "../../data/api";
 import { useLoad } from "../../lib/useLoad";
 
 /** Phone "Account" tab: everything that left the menu (reports, notifications, settings) in one list. */
 export function Account() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  useDataVersion();
-  const reports = useLoad(() => listMyReports(user!.id), [user?.id]);
+  const reports = useLoad(() => (user ? listMyReports(user.id) : Promise.resolve([])), [user?.id]);
+  // Hooks stay above the early return. The layout's live subscription refreshes this count.
+  const unread = useLoad(() => unreadCount(), []) ?? 0;
   if (!user || !reports) return <Loading />;
   const initials = user.fullName
     .split(" ")
     .map((w) => w[0])
     .slice(0, 2)
     .join("");
-  const unread = unreadCount();
 
   const Row = ({ to, icon, label, count, badge }: { to: string; icon: IconName; label: string; count?: number; badge?: number }) => (
     <Link to={to} className="account__row">

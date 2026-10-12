@@ -120,6 +120,8 @@ export function App() {
           <Route path="report/submitted" element={<ReportSubmitted />} />
           <Route path="reports" element={<MyReports />} />
           <Route path="reports/:reportId/matches" element={<MatchSuggestions />} />
+          {/* Notifications sent before Oct 11 linked here. */}
+          <Route path="my-reports/*" element={<Navigate to="/reports" replace />} />
           <Route path="notifications" element={<Inbox who="student" />} />
           <Route path="messages" element={<Inbox who="student" only="messages" />} />
           <Route path="account" element={<Account />} />

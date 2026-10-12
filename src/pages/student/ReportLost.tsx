@@ -8,7 +8,8 @@ import { fieldErrors, lostReportSchema } from "../../lib/validation";
 import { todayIso } from "../../lib/format";
 
 const EMPTY = { title: "", category: "", location: "", lostOn: "", description: "", privateDetails: "" };
-const MAX_BYTES = 2 * 1024 * 1024;
+// Photos are re-encoded and shrunk in the browser before upload, so the raw file can be large.
+const MAX_BYTES = 15 * 1024 * 1024;
 
 export function ReportLost() {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export function ReportLost() {
   const editId = params.get("edit");
   const fromReports = (useLocation().state as { from?: string } | null)?.from === "/reports";
   const [form, setForm] = useState(EMPTY);
-  const [photo, setPhoto] = useState<{ url: string; name: string } | null>(null);
+  const [photo, setPhoto] = useState<{ url: string; name: string; file: File } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   // Editing: null while loading, false if the report is missing or belongs to someone else.
@@ -37,11 +38,11 @@ export function ReportLost() {
   function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.type !== "image/jpeg") return setErrors((x) => ({ ...x, photo: "Use a JPEG photo." }));
-    if (file.size > MAX_BYTES) return setErrors((x) => ({ ...x, photo: "The photo is larger than 2 MB." }));
-    // Production: compress in the browser, then upload to Supabase Storage and keep the object path.
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return setErrors((x) => ({ ...x, photo: "Use a JPEG, PNG or WebP photo." }));
+    if (file.size > MAX_BYTES) return setErrors((x) => ({ ...x, photo: "The photo is larger than 15 MB." }));
+    // On submit the photo is shrunk and re-encoded in the browser (removing location data), then uploaded.
     setErrors(({ photo: _p, ...rest }) => rest);
-    setPhoto({ url: URL.createObjectURL(file), name: file.name });
+    setPhoto({ url: URL.createObjectURL(file), name: file.name, file });
   }
 
   async function submit(e: FormEvent) {
@@ -52,7 +53,7 @@ export function ReportLost() {
     setBusy(true);
     if (editId) {
       try {
-        await updateReport(user!.id, editId, { ...parsed.data, ...(photo ? { photo: photo.url } : {}) });
+        await updateReport(user!.id, editId, { ...parsed.data, photoFile: photo?.file });
       } catch (err) {
         setBusy(false);
         return setErrors({ _: (err as Error).message });
@@ -61,7 +62,12 @@ export function ReportLost() {
       if (fromReports) navigate(-1);
       else navigate("/reports", { replace: true });
     } else {
-      await createReport(user!.id, { ...parsed.data, photo: photo?.url });
+      try {
+        await createReport(user!.id, { ...parsed.data, photoFile: photo?.file });
+      } catch (err) {
+        setBusy(false);
+        return setErrors({ _: (err as Error).message });
+      }
       navigate("/report/submitted", { replace: true });
     }
   }
@@ -104,7 +110,7 @@ export function ReportLost() {
         <div className={`field ${errors.photo ? "field--error" : ""}`}>
           <span className="field__label">Photo (optional)</span>
           <label className="dropzone">
-            <input type="file" accept="image/jpeg" onChange={pickPhoto} className="sr-only" />
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pickPhoto} className="sr-only" />
             {photo ? (
               <>
                 <img src={photo.url} alt="Selected photo preview" className="dropzone__preview" />
@@ -115,9 +121,9 @@ export function ReportLost() {
                 <Icon name="upload" size={36} />
                 <span className="dropzone__cta">Choose files</span>
                 <span className="dropzone__hint">
-                  JPEG files only.
+                  JPEG, PNG or WebP.
                   <br />
-                  Max file size: 2 MB
+                  Location data is removed before upload.
                 </span>
               </>
             )}

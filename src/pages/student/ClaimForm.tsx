@@ -1,28 +1,23 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Alert, BackButton, CategoryPill, EmptyState, ItemPhoto, Loading, TextAreaField } from "../../components/ui";
-import { createClaim, getFoundItem, isClaimable } from "../../data/api";
-import { useAuth } from "../../auth/AuthContext";
+import { createClaim, getFoundItem, isClaimable, listProofQuestions } from "../../data/api";
 import { claimSchema, fieldErrors } from "../../lib/validation";
 import { useLoad } from "../../lib/useLoad";
 
-// [Confirm with the office] Questions could later vary by category.
-const QUESTIONS = [
-  "Describe any unique marks, damage, or features.",
-  "What was inside or attached to the item?",
-  "Where and when did you last have it?",
-];
 
 export function ClaimForm() {
   const { itemId = "" } = useParams();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const item = useLoad(() => getFoundItem(itemId), [itemId]);
-  const [answers, setAnswers] = useState(["", "", ""]);
+  // The office's proof questions: the general ones plus this category's own (proof_questions table).
+  const questions = useLoad(() => (item ? listProofQuestions(item.category) : Promise.resolve([])), [item?.category]);
+  const [answers, setAnswers] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
-  if (item === undefined) return <Loading />;
+  if (item === undefined || (item && questions === undefined)) return <Loading />;
+  const QUESTIONS = questions ?? [];
   if (!item || !isClaimable(item))
     return (
       <div className="container stack-lg">
@@ -33,12 +28,12 @@ export function ClaimForm() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const parsed = claimSchema.safeParse({ answers });
+    const parsed = claimSchema.safeParse({ answers: QUESTIONS.map((_, i) => answers[i] ?? "") });
     if (!parsed.success) return setErrors(fieldErrors(parsed.error));
     setErrors({});
     setBusy(true);
     try {
-      const claim = await createClaim(user!.id, itemId, answers.map((a) => a.trim()), QUESTIONS);
+      const claim = await createClaim(itemId, QUESTIONS.map((_, i) => (answers[i] ?? "").trim()), QUESTIONS);
       // Replace the form so Back can't reopen a claim that was already sent.
       navigate(`/claims/${claim.id}/submitted`, { replace: true });
     } catch (err) {
@@ -70,8 +65,8 @@ export function ClaimForm() {
             key={q}
             label={q}
             rows={3}
-            value={answers[i]}
-            onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
+            value={answers[i] ?? ""}
+            onChange={(e) => setAnswers((a) => QUESTIONS.map((_, j) => (j === i ? e.target.value : (a[j] ?? ""))))}
             error={errors[`answers.${i}`]}
             maxLength={500}
           />
@@ -80,7 +75,7 @@ export function ClaimForm() {
           <button className="btn btn--navy btn--lg btn--wide" disabled={busy}>
             {busy ? "Submitting…" : "Submit claim"}
           </button>
-          <button type="button" className="btn btn--muted btn--lg" onClick={() => setAnswers(["", "", ""])}>
+          <button type="button" className="btn btn--muted btn--lg" onClick={() => setAnswers([])}>
             Clear
           </button>
         </div>

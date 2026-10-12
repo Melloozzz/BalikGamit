@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Icon } from "../../components/Icon";
 import { Tabs } from "../../components/Filters";
 import { BackButton, PageHead } from "../../components/ui";
-import { officeReport, type OfficeReport } from "../../data/api";
+import { getOfficeReport, type OfficeReport } from "../../data/api";
+import { Loading } from "../../components/ui";
+import { useLoad } from "../../lib/useLoad";
 import { longDate, shortDate } from "../../lib/format";
 
 type Range = "30" | "90" | "all";
@@ -12,7 +14,9 @@ const RETURNED = "#b8860b";
 /** Office reports: what came in, what went back to owners, and where things get lost. */
 export function Reports() {
   const [range, setRange] = useState<Range>("90");
-  const r = officeReport(range === "all" ? undefined : Number(range));
+  const report = useLoad(() => getOfficeReport(range === "all" ? undefined : Number(range)), [range]);
+  if (!report) return <Loading />;
+  const r = report;
 
   const tiles: { label: string; value: string; note?: string }[] = [
     { label: "Items logged", value: String(r.logged) },

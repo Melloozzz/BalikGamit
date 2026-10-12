@@ -1,27 +1,11 @@
-// Data access layer. Every page reads and writes through these functions, so wiring
-// the real backend means replacing the bodies here, not the pages:
+// Data access layer. Pages import from here; each area lives in its own module:
 //   - plain reads/writes  -> supabase.from(...) under row-level security
 //   - status changes      -> supabase.rpc(...) database functions (they check allowed transitions)
-//   - AI matching         -> fetch("/api/...") on the Cloudflare Worker
-// In demo mode the functions work on the in-memory sample data in ./mock.ts.
-import * as db from "./mock";
-import type {
-  Activity,
-  Claim,
-  ClaimStatus,
-  FlaggedPost,
-  FoundItem,
-  LostReport,
-  Match,
-  Message,
-  Notification,
-  Profile,
-  FlagReason,
-  Place,
-} from "./types";
-import { ON_SHELF, isOfficeRole, type OfficeRole } from "./types";
+//   - office invites and account deletion -> the Cloudflare Worker (it holds the service key)
 import { todayIso } from "../lib/format";
-import { supabase } from "../lib/supabase";
+
+/** Dropdown options for a record: an archived category or location it already uses stays selectable. */
+export const withCurrent = (list: string[], value: string) => (value && !list.includes(value) ? [...list, value] : list);
 
 // Reference lists and office settings come from the database (src/data/reference.ts).
 export { CATEGORIES, LOCATIONS, OFFICE } from "./reference";
@@ -43,568 +27,60 @@ export {
   type FoundItemInput,
   type FoundItemPatch,
 } from "./foundItems";
+// Lost reports, matches and moderation (slice 2): src/data/lostReports.ts.
+export {
+  listPublicLostReports,
+  getPublicLostReport,
+  listMyReports,
+  getMyReport,
+  createReport,
+  updateReport,
+  setReportStatus,
+  getMatches,
+  listAllLostReports,
+  getReport,
+  countFlaggedReports,
+  flagReport,
+  listFlaggedPosts,
+  setFlaggedVisible,
+  type ReportInput,
+  type OfficeLostReport,
+} from "./lostReports";
+// Claims, messages and notifications (slice 3): src/data/claims.ts.
+export {
+  listMyClaims,
+  listAllClaims,
+  listClaimsForItem,
+  getClaim,
+  listProofQuestions,
+  createClaim,
+  withdrawClaim,
+  decideClaim,
+  confirmRelease,
+  returnToCustody,
+  listMessages,
+  sendMessage,
+  subscribeToMessages,
+  listThreads,
+  listNotifications,
+  unreadCount,
+  markNotificationsRead,
+  subscribeToNotifications,
+  isClaimable,
+  type Thread,
+} from "./claims";
+// Office overview (slice 4): src/data/office.ts.
+export {
+  getDashboardCounts,
+  getOfficeReport,
+  computeOfficeReport,
+  listActivity,
+  getProfileStats,
+  type DashboardCounts,
+  type OfficeReport,
+} from "./office";
+// Super admin and account settings (slice 5): src/data/admin.ts.
+export { listPlaces, addPlace, renamePlace, setPlaceArchived, listAdmins, inviteAdmin, setAdminActive, updateMyName, deleteMyAccount } from "./admin";
 export { useDataVersion } from "./events";
-import { emit } from "./events";
-
-/** Dropdown options for a record: an archived category or location it already uses stays selectable. */
-export const withCurrent = (list: string[], value: string) => (value && !list.includes(value) ? [...list, value] : list);
-
-/** The Worker checks this token on every /api call. */
-async function authHeaders(): Promise<Record<string, string>> {
-  const token = (await supabase.auth.getSession()).data.session?.access_token;
-  return token ? { authorization: `Bearer ${token}` } : {};
-}
-
-// ---- audit trail ------------------------------------------------------------------------
-// Demo mode records the signed-in staff name here. In production a database trigger writes the
-// activity row from auth.uid(), so the browser can't fake or skip it.
-let actor = "Office";
-export const setActor = (name: string) => {
-  actor = name;
-};
-function record(kind: Activity["kind"], text: string, subject?: string, href?: string) {
-  db.activity.unshift({ id: crypto.randomUUID(), at: new Date().toISOString(), actor, kind, text, subject, href });
-}
-
-const delay = <T,>(value: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(value), ms));
-const nowIso = () => new Date().toISOString();
-
-/**
- * Strip admin-only fields before anything reaches a student page: ownership evidence, who logged
- * it, where it's shelved, the holding schedule, and the disposal record (staff name and note).
- */
-export const toPublic = ({ privateDetails: _p, loggedBy: _l, shelfTag: _s, holdUntil: _h, disposal: _d, ...item }: FoundItem): FoundItem => item;
-
-// ---- people ------------------------------------------------------------------------
-export const getProfile = (id: string) => db.profiles.find((p) => p.id === id);
-export const findProfileByEmail = (email: string) =>
-  db.profiles.find((p) => p.email.toLowerCase() === email.trim().toLowerCase());
-
-// ---- not yet converted: these still use the sample data in mock.ts ---------------------
-const DAY = 86_400_000;
-const isoDay = (iso: string) => new Date(`${iso}T00:00:00+08:00`).getTime();
-const mockHoldEnds = (item: FoundItem) =>
-  item.holdUntil ?? new Date(isoDay(item.foundOn) + db.OFFICE.holdingDays * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-const hasOpenClaim = (itemId: string) =>
-  db.claims.some((c) => c.itemId === itemId && ["pending", "needs_info", "approved"].includes(c.status));
-const mockIsUnclaimed = (item: FoundItem) => item.status === "in_custody" && mockHoldEnds(item) < todayIso() && !hasOpenClaim(item.id);
-
-// ---- lost reports (posted by students, live immediately) --------------------------
-export function listPublicLostReports(f: ItemFilters = {}) {
-  const q = f.q?.trim().toLowerCase();
-  const reports = db.lostReports
-    .filter((r) => r.status === "active")
-    .filter((r) => !f.category || r.category === f.category)
-    .filter((r) => !f.location || r.location === f.location)
-    .filter((r) => !f.since || r.lostOn >= f.since)
-    .filter((r) => !q || `${r.title} ${r.description} ${r.category} ${r.location}`.toLowerCase().includes(q))
-    .sort((a, b) => b.lostOn.localeCompare(a.lostOn));
-  return delay(reports.map(({ privateDetails: _p, ...r }) => r));
-}
-
-export const listMyReports = (userId: string) => delay(db.lostReports.filter((r) => r.ownerId === userId));
-
-/** Lost report as other students see it: no private details, no owner identity. */
-export async function getPublicLostReport(id: string, viewerId?: string) {
-  const r = db.lostReports.find((x) => x.id === id && x.status === "active");
-  if (!r) return delay(null);
-  const { privateDetails: _p, ownerId, ...pub } = r;
-  return delay({ ...pub, mine: ownerId === viewerId });
-}
-
-/** Office view of every lost report, with the owner's name and email. */
-export const listAllLostReports = () =>
-  delay(
-    [...db.lostReports]
-      .sort((a, b) => b.lostOn.localeCompare(a.lostOn))
-      .map((r) => ({ ...r, owner: getProfile(r.ownerId), flags: db.flaggedPosts.filter((f) => f.reportId === r.id).length })),
-  );
-
-/** Office: any report, private details included. */
-export const getReport = (id: string) => delay(db.lostReports.find((r) => r.id === id) ?? null);
-
-/** Student: one of their own reports, or null (also for someone else's, so ownership isn't revealed). */
-export const getMyReport = (userId: string, id: string) => delay(db.lostReports.find((r) => r.id === id && r.ownerId === userId) ?? null);
-
-export async function createReport(
-  userId: string,
-  input: Pick<LostReport, "title" | "category" | "location" | "lostOn" | "description" | "privateDetails"> & { photo?: string },
-) {
-  const next = Math.max(...db.lostReports.map((r) => Number(r.id.slice(3)))) + 1;
-  const report: LostReport = { ...input, id: `LR-${next}`, ownerId: userId, status: "active", matchCount: 0 };
-  db.lostReports.unshift(report);
-  emit();
-  // The Worker queues AI extraction + matching for the new report; results arrive as a notification.
-  authHeaders()
-    .then((h) => fetch(`/api/reports/${report.id}/match`, { method: "POST", headers: h }))
-    .catch(() => undefined);
-  return delay(report);
-}
-
-/** A student edits their own report. In production RLS enforces the owner check too. */
-export async function updateReport(
-  userId: string,
-  id: string,
-  patch: Partial<Pick<LostReport, "title" | "category" | "location" | "lostOn" | "description" | "privateDetails" | "photo">>,
-) {
-  const r = db.lostReports.find((x) => x.id === id);
-  // Same message for "missing" and "someone else's", so the check doesn't reveal which reports exist.
-  if (!r || r.ownerId !== userId) throw new Error("Report not found.");
-  Object.assign(r, patch);
-  // An edited hidden report goes back to the office for another look; it is not re-published automatically.
-  if (r.status === "hidden") r.statusNote = "Edited. Waiting for the office to review it again.";
-  emit();
-  return delay(r);
-}
-
-export async function setReportStatus(id: string, status: LostReport["status"]) {
-  const r = db.lostReports.find((x) => x.id === id);
-  if (r) {
-    r.status = status;
-    r.statusNote = status === "resolved" ? "You marked this item as found." : undefined;
-  }
-  emit();
-  return delay(r);
-}
-
-export async function getMatches(reportId: string): Promise<Match[]> {
-  try {
-    const res = await fetch(`/api/reports/${reportId}/matches`, { headers: await authHeaders() });
-    if (res.ok) return ((await res.json()) as { matches: Match[] }).matches;
-  } catch {
-    /* fall back to sample matches */
-  }
-  const seeds = db.matchesByReport[reportId] ?? [];
-  const matches: Match[] = seeds.flatMap((s) => {
-    const item = db.foundItems.find((i) => i.id === s.itemId);
-    return item ? [{ rank: s.rank, likelihood: s.likelihood, why: s.why, but: s.but, item: toPublic(item) }] : [];
-  });
-  return delay(matches);
-}
-
-// ---- claims --------------------------------------------------------------------------
-export const listMyClaims = (userId: string) =>
-  delay(db.claims.filter((c) => c.claimantId === userId).sort((a, b) => b.filedOn.localeCompare(a.filedOn)));
-
-export const listAllClaims = () => delay([...db.claims].sort((a, b) => b.filedOn.localeCompare(a.filedOn)));
-
-export const getClaim = (id: string) => delay(db.claims.find((c) => c.id === id) ?? null);
-
-export const otherOpenClaims = (claim: Claim) =>
-  db.claims.filter((c) => c.itemId === claim.itemId && c.id !== claim.id && (c.status === "pending" || c.status === "needs_info"));
-
-/** Synchronous lookup of the item behind a claim, admin fields included. */
-/** Office view: every claim filed on one found item, newest first. */
-export const listClaimsForItem = (itemId: string) =>
-  delay(db.claims.filter((c) => c.itemId === itemId).sort((a, b) => b.filedOn.localeCompare(a.filedOn)));
-
-export const itemFor = (itemId: string) => db.foundItems.find((i) => i.id === itemId);
-
-/** Only items the office still holds, and that aren't already promised to someone, can be claimed. */
-export const isClaimable = (item: Pick<FoundItem, "status">) => item.status === "in_custody" || item.status === "claim_pending";
-
-export async function createClaim(userId: string, itemId: string, answers: string[], questions: string[]) {
-  const item = db.foundItems.find((i) => i.id === itemId);
-  if (!item || !isClaimable(item)) throw new Error("This item can't be claimed. The office no longer has it, or it's already being returned to its owner.");
-  const existing = db.claims.filter((c) => c.itemId === itemId && c.claimantId === userId);
-  if (existing.length >= 2) throw new Error("You've used both claim attempts for this item.");
-  const next = Math.max(...db.claims.map((c) => Number(c.id.slice(3)))) + 1;
-  const at = nowIso();
-  const claim: Claim = {
-    id: `CL-${next}`,
-    itemId,
-    claimantId: userId,
-    status: "pending",
-    filedOn: at,
-    answers: answers.map((answer, i) => ({ question: questions[i], answer })),
-    history: [{ status: "submitted", at }],
-  };
-  db.claims.unshift(claim);
-  if (item.status === "in_custody") item.status = "claim_pending";
-  emit();
-  return delay(claim);
-}
-
-function setClaimStatus(claim: Claim, status: ClaimStatus) {
-  claim.status = status;
-  claim.history.push({ status, at: nowIso() });
-}
-
-/** After a claim closes without approval: if nobody else is still claiming the item, it's back on the shelf. */
-function releaseIfNoOpenClaims(itemId: string) {
-  const item = db.foundItems.find((i) => i.id === itemId);
-  const stillClaimed = db.claims.some((c) => c.itemId === itemId && (c.status === "pending" || c.status === "needs_info"));
-  if (item?.status === "claim_pending" && !stillClaimed) item.status = "in_custody";
-}
-
-export async function withdrawClaim(id: string) {
-  const c = db.claims.find((x) => x.id === id);
-  if (c) {
-    setClaimStatus(c, "withdrawn");
-    releaseIfNoOpenClaims(c.itemId);
-  }
-  emit();
-  return delay(c);
-}
-
-/** Admin decision. In production this is one database function that checks the transition. */
-export async function decideClaim(id: string, decision: "approve" | "reject" | "request_info", reason?: string) {
-  const c = db.claims.find((x) => x.id === id);
-  if (!c) throw new Error("Claim not found.");
-  // The student may have withdrawn, or another admin decided, since this page loaded.
-  if (c.status !== "pending" && c.status !== "needs_info") throw new Error("This claim was already decided or withdrawn.");
-  const subject = db.foundItems.find((i) => i.id === c.itemId)?.title;
-  record(
-    decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "asked",
-    decision === "approve" ? `approved claim ${c.id}` : decision === "reject" ? `rejected claim ${c.id}` : `asked for more details on claim ${c.id}`,
-    subject,
-    `/admin/claims/${c.id}`,
-  );
-  if (decision === "approve") {
-    setClaimStatus(c, "approved");
-    const pickup = new Date();
-    pickup.setDate(pickup.getDate() + db.OFFICE.pickupDays + 2);
-    c.pickupBy = pickup.toLocaleDateString("en-CA");
-    const item = db.foundItems.find((i) => i.id === c.itemId);
-    if (item) item.status = "ready_for_pickup";
-    // Approving one claim closes the other open claims on the same item.
-    for (const other of otherOpenClaims(c)) {
-      other.decisionReason = "Another claim for this item was approved.";
-      setClaimStatus(other, "rejected");
-    }
-  } else if (decision === "reject") {
-    c.decisionReason = reason;
-    setClaimStatus(c, "rejected");
-    releaseIfNoOpenClaims(c.itemId);
-  } else {
-    setClaimStatus(c, "needs_info");
-    if (reason) db.messages.push({ id: crypto.randomUUID(), claimId: id, from: "office", body: reason, at: nowIso() });
-  }
-  emit();
-  return delay(c);
-}
-
-export async function confirmRelease(claimId: string) {
-  const c = db.claims.find((x) => x.id === claimId);
-  if (!c) throw new Error("Claim not found.");
-  setClaimStatus(c, "completed");
-  const item = db.foundItems.find((i) => i.id === c.itemId);
-  if (item) {
-    item.status = "returned";
-    item.returnedOn = todayIso();
-    record("released", `released ${item.id} to ${getProfile(c.claimantId)?.fullName ?? "the claimant"}`, item.title, `/admin/items/${item.id}`);
-  }
-  const report = c.linkedReportId && db.lostReports.find((r) => r.id === c.linkedReportId);
-  if (report) report.status = "resolved";
-  emit();
-  return delay(c);
-}
-
-export async function returnToCustody(claimId: string) {
-  const c = db.claims.find((x) => x.id === claimId);
-  if (!c) throw new Error("Claim not found.");
-  setClaimStatus(c, "expired");
-  const item = db.foundItems.find((i) => i.id === c.itemId);
-  if (item) {
-    item.status = "in_custody";
-    record("returned_to_custody", `put ${item.id} back on the shelf (claim ${c.id} not picked up)`, item.title, `/admin/items/${item.id}`);
-  }
-  emit();
-  return delay(c);
-}
-
-// ---- messages (claim-scoped only) --------------------------------------------------
-export const listMessages = (claimId: string) =>
-  delay(db.messages.filter((m) => m.claimId === claimId).sort((a, b) => a.at.localeCompare(b.at)));
-
-export async function sendMessage(claimId: string, from: Message["from"], body: string) {
-  const m: Message = { id: crypto.randomUUID(), claimId, from, body, at: nowIso() };
-  db.messages.push(m);
-  const c = db.claims.find((x) => x.id === claimId);
-  if (c && from === "office" && c.status === "pending") setClaimStatus(c, "needs_info");
-  if (c && from === "owner" && c.status === "needs_info") setClaimStatus(c, "pending");
-  emit();
-  return delay(m);
-}
-
-export interface Thread {
-  claim: Claim;
-  itemTitle: string;
-  photo?: string;
-  last: Message;
-  count: number;
-  /**
-   * This viewer owes a reply: for students, the office asked a question (claim is "needs info");
-   * for the office, the claimant answered and the claim is back to "pending".
-   */
-  awaitingYou: boolean;
-  /** Office view only: claimant's name. Students only ever see "Office". */
-  claimantName?: string;
-}
-
-/** Claim conversations for the Messages tab. Students see their own claims; office staff see all. */
-export function listThreads(viewer: "owner" | "office", userId?: string): Promise<Thread[]> {
-  const out: Thread[] = [];
-  for (const claim of db.claims) {
-    if (viewer === "owner" && claim.claimantId !== userId) continue;
-    const msgs = db.messages.filter((m) => m.claimId === claim.id).sort((a, b) => a.at.localeCompare(b.at));
-    if (!msgs.length) continue;
-    const item = db.foundItems.find((i) => i.id === claim.itemId);
-    const last = msgs[msgs.length - 1];
-    out.push({
-      claim,
-      itemTitle: item?.title ?? claim.itemId,
-      photo: item?.photo,
-      last,
-      count: msgs.length,
-      awaitingYou: last.from !== viewer && (viewer === "owner" ? claim.status === "needs_info" : claim.status === "pending"),
-      claimantName: viewer === "office" ? getProfile(claim.claimantId)?.fullName : undefined,
-    });
-  }
-  return delay(out.sort((a, b) => b.last.at.localeCompare(a.last.at)));
-}
-
-// ---- notifications (separate lists for students and office staff) -------------------
-const inbox = (who: "student" | "office") => (who === "office" ? db.adminNotifications : db.notifications);
-export const listNotifications = (who: "student" | "office" = "student") => delay([...inbox(who)]);
-export const unreadCount = (who: "student" | "office" = "student") => inbox(who).filter((n) => !n.read).length;
-export async function markNotificationsRead(ids?: string[], who: "student" | "office" = "student") {
-  inbox(who).forEach((n: Notification) => {
-    if (!ids || ids.includes(n.id)) n.read = true;
-  });
-  emit();
-  return delay(true);
-}
-
-// ---- profile summary ------------------------------------------------------------------
-export function profileStats(user: Profile) {
-  if (!isOfficeRole(user.role)) {
-    const reports = db.lostReports.filter((r) => r.ownerId === user.id);
-    const claims = db.claims.filter((c) => c.claimantId === user.id);
-    return [
-      { label: "Lost reports", value: reports.length },
-      { label: "Claims filed", value: claims.length },
-      { label: "Items recovered", value: claims.filter((c) => c.status === "completed").length + reports.filter((r) => r.status === "resolved").length },
-    ];
-  }
-  return [
-    { label: "Items you logged", value: db.foundItems.filter((i) => i.loggedBy === user.fullName).length },
-    { label: "Claims needing action", value: db.claims.filter((c) => ["pending", "needs_info", "approved"].includes(c.status)).length },
-    { label: "Items in custody", value: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length },
-  ];
-}
-
-// ---- moderation ----------------------------------------------------------------------
-export const listFlaggedPosts = () => delay([...db.flaggedPosts]);
-/**
- * Hide or restore a flagged lost report. Several students can flag the same report, so every
- * flag on that report follows; otherwise the others would still say "Visible" after a hide.
- */
-export async function setFlaggedVisible(id: string, visible: boolean) {
-  const f = db.flaggedPosts.find((x: FlaggedPost) => x.id === id);
-  if (f) {
-    for (const same of db.flaggedPosts) if (same.reportId === f.reportId) same.visible = visible;
-    const r = db.lostReports.find((x) => x.id === f.reportId);
-    if (r) {
-      r.status = visible ? "active" : "hidden";
-      record(visible ? "unhid" : "hid", `${visible ? "made visible" : "hid"} lost report ${r.id}`, r.title, `/admin/lost/${r.id}`);
-    }
-  }
-  emit();
-  return delay(f);
-}
-
-const FLAG_TEXT: Record<FlagReason, string> = {
-  contact: "Shows personal contact details",
-  fake: "Fake, spam or a joke post",
-  offensive: "Offensive or inappropriate",
-  other: "Something else",
-};
-/** A student reports a lost report. The post stays visible until the office decides. */
-export async function flagReport(reportId: string, reporterId: string, reason: FlagReason, note?: string) {
-  const r = db.lostReports.find((x) => x.id === reportId);
-  if (!r) throw new Error("This post isn't available anymore.");
-  if (r.ownerId === reporterId) throw new Error("You can't report your own post.");
-  if (db.flaggedPosts.some((f) => f.reportId === reportId && f.reporterId === reporterId))
-    throw new Error("You already reported this post. The office will review it.");
-  const email = getProfile(reporterId)?.email ?? "";
-  const next = Math.max(...db.flaggedPosts.map((f) => Number(f.id.slice(3)))) + 1;
-  db.flaggedPosts.unshift({
-    id: `FP-${next}`,
-    reportId,
-    title: r.title,
-    reporterLabel: email ? `${email[0]}•••@${email.split("@")[1]}` : "a student",
-    reporterId,
-    reason: FLAG_TEXT[reason],
-    note: note?.trim() || undefined,
-    visible: true,
-    reportedAt: new Date().toISOString(),
-  });
-  db.adminNotifications.unshift({
-    id: crypto.randomUUID(),
-    kind: "flagged",
-    title: "A lost report was flagged",
-    detail: `${r.title} · ${FLAG_TEXT[reason].toLowerCase()}`,
-    at: new Date().toISOString(),
-    read: false,
-    href: "/admin/flagged",
-  });
-  emit();
-  return delay(true, 300);
-}
-
-// ---- categories and locations (super admin) -------------------------------------------
-type PlaceKind = "category" | "location";
-const lists = (k: PlaceKind) => (k === "category" ? { live: db.CATEGORIES, archived: db.ARCHIVED_CATEGORIES } : { live: db.LOCATIONS, archived: db.ARCHIVED_LOCATIONS });
-const usage = (k: PlaceKind, name: string) => ({
-  items: db.foundItems.filter((i) => (k === "category" ? i.category : i.location) === name).length,
-  reports: db.lostReports.filter((r) => (k === "category" ? r.category : r.location) === name).length,
-});
-export function listPlaces(k: PlaceKind): (Place & { items: number; reports: number })[] {
-  const { live, archived } = lists(k);
-  return [...live.map((name) => ({ name, archived: false })), ...archived.map((name) => ({ name, archived: true }))].map((p) => ({ ...p, ...usage(k, p.name) }));
-}
-const label = (k: PlaceKind) => (k === "category" ? "category" : "location");
-export async function addPlace(k: PlaceKind, name: string) {
-  const n = name.trim();
-  const { live, archived } = lists(k);
-  if (!n) throw new Error("Type a name first.");
-  if ([...live, ...archived].some((x) => x.toLowerCase() === n.toLowerCase())) throw new Error(`That ${label(k)} already exists.`);
-  // Keep "Other"/"Others" last in the dropdown.
-  const otherAt = live.findIndex((x) => /^others?$/i.test(x));
-  live.splice(otherAt === -1 ? live.length : otherAt, 0, n);
-  record("places", `added the ${label(k)} “${n}”`);
-  emit();
-  return delay(true);
-}
-export async function renamePlace(k: PlaceKind, from: string, to: string) {
-  const n = to.trim();
-  const { live, archived } = lists(k);
-  if (!n) throw new Error("The name can't be empty.");
-  // Skip the entry being renamed, so changing only its capitals ("School supplies" → "School Supplies") works.
-  if ([...live, ...archived].some((x) => x !== from && x.toLowerCase() === n.toLowerCase())) throw new Error(`That ${label(k)} already exists.`);
-  for (const arr of [live, archived]) {
-    const at = arr.indexOf(from);
-    if (at !== -1) arr[at] = n;
-  }
-  // Existing records follow the rename so filters and reports stay correct.
-  for (const i of db.foundItems) if (k === "category" ? i.category === from : i.location === from) k === "category" ? (i.category = n) : (i.location = n);
-  for (const r of db.lostReports) if (k === "category" ? r.category === from : r.location === from) k === "category" ? (r.category = n) : (r.location = n);
-  record("places", `renamed the ${label(k)} “${from}” to “${n}”`);
-  emit();
-  return delay(true);
-}
-export async function setPlaceArchived(k: PlaceKind, name: string, archived: boolean) {
-  const { live, archived: arch } = lists(k);
-  const [from, into] = archived ? [live, arch] : [arch, live];
-  const at = from.indexOf(name);
-  if (at === -1) return delay(false);
-  from.splice(at, 1);
-  into.push(name);
-  record("places", `${archived ? "archived" : "restored"} the ${label(k)} “${name}”`);
-  emit();
-  return delay(true);
-}
-
-// ---- office reports --------------------------------------------------------------------
-export interface OfficeReport {
-  from: string;
-  to: string;
-  logged: number;
-  returned: number;
-  returnRate: number | null;
-  medianDaysToReturn: number | null;
-  lostReports: number;
-  approved: number;
-  rejected: number;
-  disposed: number;
-  weeks: { start: string; logged: number; returned: number }[];
-  topCategories: { name: string; n: number }[];
-  topLocations: { name: string; n: number }[];
-}
-/** Counts for the Reports page. `days` = how far back; omit for all time. In production this is one SQL view. */
-export function officeReport(days?: number): OfficeReport {
-  const to = todayIso();
-  // "All time" starts at the oldest record of any kind, so older lost reports and decisions count too.
-  const manila = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-  const dates = [
-    ...db.foundItems.map((i) => i.foundOn),
-    ...db.lostReports.map((r) => r.lostOn),
-    ...db.claims.flatMap((c) => c.history.map((h) => manila(h.at))),
-  ];
-  const earliest = dates.reduce((m, d) => (d < m ? d : m), to);
-  const from = days ? new Date(isoDay(to) - (days - 1) * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) : earliest;
-  const inRange = (d?: string) => !!d && d.slice(0, 10) >= from && d.slice(0, 10) <= to;
-  const logged = db.foundItems.filter((i) => inRange(i.foundOn));
-  const returned = db.foundItems.filter((i) => inRange(i.returnedOn));
-  const spans = returned.map((i) => Math.round((isoDay(i.returnedOn!) - isoDay(i.foundOn)) / DAY)).sort((a, b) => a - b);
-  const median = spans.length ? (spans.length % 2 ? spans[(spans.length - 1) / 2] : (spans[spans.length / 2 - 1] + spans[spans.length / 2]) / 2) : null;
-  const decided = (st: "approved" | "rejected") => db.claims.filter((c) => c.history.some((h) => h.status === st && inRange(new Date(h.at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })))).length;
-  // Weeks start on Monday.
-  const dow = new Date(`${from}T12:00:00+08:00`).getUTCDay();
-  const monday = isoDay(from) - ((dow + 6) % 7) * DAY;
-  const weeks: OfficeReport["weeks"] = [];
-  for (let t = monday; t <= isoDay(to); t += 7 * DAY) {
-    const s = new Date(t).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-    const e = new Date(t + 6 * DAY).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
-    const w = (d?: string) => !!d && d >= s && d <= e && inRange(d);
-    weeks.push({ start: s, logged: db.foundItems.filter((i) => w(i.foundOn)).length, returned: db.foundItems.filter((i) => w(i.returnedOn)).length });
-  }
-  const top = (key: "category" | "location") => {
-    const m = new Map<string, number>();
-    for (const i of logged) m.set(i[key], (m.get(i[key]) ?? 0) + 1);
-    return [...m].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)).slice(0, 5);
-  };
-  return {
-    from,
-    to,
-    logged: logged.length,
-    returned: returned.length,
-    returnRate: logged.length ? Math.round((logged.filter((i) => i.status === "returned").length / logged.length) * 100) : null,
-    medianDaysToReturn: median,
-    lostReports: db.lostReports.filter((r) => inRange(r.lostOn)).length,
-    approved: decided("approved"),
-    rejected: decided("rejected"),
-    disposed: db.foundItems.filter((i) => i.disposal && inRange(new Date(i.disposal.at).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }))).length,
-    weeks,
-    topCategories: top("category"),
-    topLocations: top("location"),
-  };
-}
-
-// ---- activity log -------------------------------------------------------------------------
-export const listActivity = () => delay([...db.activity].sort((a, b) => b.at.localeCompare(a.at)));
-
-// ---- admins (super admin only) ------------------------------------------------------
-export const listAdmins = () => delay(db.profiles.filter((p) => isOfficeRole(p.role)));
-export async function inviteAdmin(fullName: string, email: string, role: OfficeRole) {
-  if (findProfileByEmail(email)) throw new Error("That email already has an account.");
-  const p: Profile = { id: crypto.randomUUID(), fullName, email, role, active: true };
-  db.profiles.push(p);
-  record("admins", `invited ${fullName} as ${role === "super_admin" ? "a super admin" : "an admin"}`);
-  emit();
-  return delay(p);
-}
-export async function setAdminActive(id: string, active: boolean) {
-  const p = db.profiles.find((x) => x.id === id);
-  if (p) {
-    p.active = active;
-    record("admins", `${active ? "reactivated" : "deactivated"} ${p.fullName}'s office account`);
-  }
-  emit();
-  return delay(p);
-}
-
-// ---- dashboard ------------------------------------------------------------------------
-export function dashboardCounts() {
-  return {
-    inCustody: db.foundItems.filter((i) => ON_SHELF.includes(i.status)).length,
-    unclaimed: db.foundItems.filter(mockIsUnclaimed).length,
-    // Same rule as the Claim Queue "Needs action" tab: waiting on a decision, a reply, or a release.
-    claimsToAct: db.claims.filter((c) => c.status === "pending" || c.status === "needs_info" || c.status === "approved").length,
-    // Reports, not flags: two students flagging one post is still one post to review.
-    flagged: new Set(db.flaggedPosts.filter((f) => f.visible).map((f) => f.reportId)).size,
-  };
-}
 
 export { todayIso };

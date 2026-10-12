@@ -5,11 +5,12 @@ import { supabase } from "../lib/supabase";
 import { todayIso } from "../lib/format";
 import { ON_SHELF, type FoundItem, type FoundItemStatus } from "./types";
 import { OFFICE, categoryId, categoryName, locationId, locationName } from "./reference";
-import { idOf, manilaDate, must, one, remember } from "./db";
+import { idOf, keyColumn, manilaDate, must, one, remember } from "./db";
 import { removePhotos, signedUrls, uploadPhoto } from "./photos";
 import { emit } from "./events";
+import { kickMatching } from "./worker";
 
-const PUBLIC_COLS = "id, ref, title, description, date_found, status, photo_paths, category_id, location_id, location_detail";
+export const PUBLIC_COLS = "id, ref, title, description, date_found, status, photo_paths, category_id, location_id, location_detail";
 const OFFICE_COLS = `${PUBLIC_COLS}, hold_until, disposal_note, closed_at, is_hidden,
   logger:profiles!found_items_logged_by_fkey(full_name),
   disposer:profiles!found_items_disposed_by_fkey(full_name),
@@ -98,7 +99,7 @@ export async function listFoundItems(f: ItemFilters = {}): Promise<FoundItem[]> 
 
 /** One item by reference number. Students get public fields only; `admin` adds the office fields. */
 export async function getFoundItem(ref: string, opts: { admin?: boolean } = {}): Promise<FoundItem | null> {
-  const row = must(await supabase.from("found_items").select(opts.admin ? OFFICE_COLS : PUBLIC_COLS).eq("ref", ref).maybeSingle()) as Row | null;
+  const row = must(await supabase.from("found_items").select(opts.admin ? OFFICE_COLS : PUBLIC_COLS).eq(keyColumn(ref), ref).maybeSingle()) as Row | null;
   if (!row) return null;
   return (await toFoundItems([row], !!opts.admin))[0];
 }
@@ -150,6 +151,7 @@ export async function logFoundItem(input: FoundItemInput): Promise<FoundItem> {
   remember(row.ref, row.id);
   await savePrivate(row.id, input.privateDetails, input.shelfTag || null);
   emit();
+  kickMatching();
   return (await getFoundItem(row.ref, { admin: true }))!;
 }
 
