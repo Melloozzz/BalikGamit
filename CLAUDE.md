@@ -19,7 +19,7 @@ npm run build   # typecheck (app + worker) then build — run before every commi
 Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (publishable key; ask the project lead). Without them the app shows a setup message. There is no demo mode or sample data: sign in with a real `@rtu.edu.ph` account.
 
 ## Deploy
-Cloudflare builds and deploys the Worker from `main` (GitHub connected). The domain is balikgamit.site. While `COMING_SOON` is `"true"` in `wrangler.jsonc`, the domain shows `public/coming-soon/` (gate in `worker/comingSoon.ts`); the workers.dev address stays open for testing. Set it to `"false"` to launch.
+Cloudflare builds and deploys the Worker from `main` (GitHub connected). The domain is balikgamit.site. While `COMING_SOON` is `"true"` in `wrangler.jsonc`, the domain shows `public/coming-soon/` (gate in `worker/comingSoon.ts`). The team tests on dev.balikgamit.site, which Cloudflare Access (Zero Trust) limits to their emails; there is no workers.dev address. Set it to `"false"` to launch.
 
 ## How the code is organized
 - Pages import data functions only from `src/data/api.ts`, which re-exports the Supabase modules (`foundItems.ts`, `lostReports.ts`, `claims.ts`, `office.ts`, `admin.ts`, `reference.ts`). Status changes go through database functions (`supabase.rpc`).

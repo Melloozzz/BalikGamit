@@ -28,9 +28,14 @@ describe("coming-soon gate", () => {
     expect(await comingSoon(req("https://balikgamit.example/favicon.png"), env())).toBeNull();
   });
 
-  it("leaves workers.dev and local dev open", async () => {
-    expect(await comingSoon(req("https://balikgamit.someone.workers.dev/login"), env())).toBeNull();
+  it("leaves local dev open", async () => {
     expect(await comingSoon(req("http://localhost:8787/"), env())).toBeNull();
+  });
+
+  it("opens the team address only through Cloudflare Access", async () => {
+    expect(await comingSoon(req("https://dev.balikgamit.site/login", { "cf-access-jwt-assertion": "jwt" }), env())).toBeNull();
+    expect((await comingSoon(req("https://dev.balikgamit.site/login"), env()))?.status).toBe(503);
+    expect((await comingSoon(req("https://balikgamit.someone.workers.dev/login"), env()))?.status).toBe(503);
   });
 
   it("is off unless COMING_SOON is true", async () => {

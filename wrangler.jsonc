@@ -4,6 +4,10 @@
   "name": "balikgamit",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
+  // No *.workers.dev address or preview links: the team uses dev.balikgamit.site behind
+  // Cloudflare Access, the public uses balikgamit.site.
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
@@ -16,8 +20,8 @@
   "vars": {
     "GROQ_MODEL": "openai/gpt-oss-120b",
     "SUPABASE_URL": "https://tifeckfqokdktspjokqm.supabase.co",
-    // "true": the public domain shows the under-construction page; workers.dev and local dev
-    // stay open. Set to "false" and deploy to launch.
+    // "true": balikgamit.site shows the under-construction page; dev.balikgamit.site (team,
+    // behind Cloudflare Access) and local dev stay open. Set to "false" and deploy to launch.
     "COMING_SOON": "true"
   },
   // Cron (proposal: Cloudflare Cron Trigger): every 3 days keep Supabase awake and purge old records;
