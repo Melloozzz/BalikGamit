@@ -333,6 +333,8 @@ export async function withdrawClaim(id: string) {
 export async function decideClaim(id: string, decision: "approve" | "reject" | "request_info", reason?: string) {
   const c = db.claims.find((x) => x.id === id);
   if (!c) throw new Error("Claim not found.");
+  // The student may have withdrawn, or another admin decided, since this page loaded.
+  if (c.status !== "pending" && c.status !== "needs_info") throw new Error("This claim was already decided or withdrawn.");
   const subject = db.foundItems.find((i) => i.id === c.itemId)?.title;
   record(
     decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "asked",

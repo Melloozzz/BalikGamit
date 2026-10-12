@@ -126,4 +126,11 @@ describe("closing claims", () => {
     await withdrawClaim("CL-512");
     expect(itemFor("BG-1042")!.status).toBe("in_custody");
   });
+
+  it("refuses to decide a claim that is already closed", async () => {
+    // CL-512 was withdrawn and CL-516 rejected above.
+    await expect(decideClaim("CL-512", "approve")).rejects.toThrow("already decided or withdrawn");
+    await expect(decideClaim("CL-516", "reject", "Again.")).rejects.toThrow("already decided or withdrawn");
+    expect(itemFor("BG-1042")!.status).toBe("in_custody");
+  });
 });
