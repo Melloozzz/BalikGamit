@@ -1,7 +1,10 @@
 // Domain types. Status values mirror the workflow in the project plan and the
 // database enums, so swapping the mock data layer for Supabase changes no UI code.
 
-export type Role = "student" | "admin" | "super_admin";
+/** Faculty and staff use BalikGamit the same way students do; only the office roles see admin pages. */
+export type Role = "student" | "faculty" | "staff" | "admin" | "super_admin";
+export type OfficeRole = "admin" | "super_admin";
+export const isOfficeRole = (r: Role | undefined): r is OfficeRole => r === "admin" || r === "super_admin";
 
 export type LostReportStatus = "active" | "resolved" | "closed" | "expired" | "hidden";
 export type FoundItemStatus = "in_custody" | "claim_pending" | "ready_for_pickup" | "returned" | "donated" | "disposed";

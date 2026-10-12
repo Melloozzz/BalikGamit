@@ -31,35 +31,48 @@ To run with the Worker: copy `.dev.vars.example` to `.dev.vars`, fill in both va
 |---|---|
 | All routes, layouts, forms, validation, status flows | Done. |
 | Item details (found and lost, student and admin) | Popups. Opened from a list, they sit over that page. Opened from a direct link, they sit over All found items or All lost items (students), or the office Found items / Lost reports lists. |
-| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Done on demo data. The activity log needs a database trigger in production so entries can't be faked. Holding period is a placeholder (`OFFICE.holdingDays`). |
+| Office pages: Found items, Edit found item, Lost reports, Unclaimed items, Reports (CSV export), Activity log, Categories & locations (super admin) | Done on demo data. In the database, the activity log is written by triggers (`admin_activity`), so entries can't be faked. Holding period and other office numbers live in `office_settings`. |
 | Students can report a lost-report post | Done. Creates a flagged post and an office notification; one report per student per post. |
-| Auth (sign in/up, RTU-only domain, verify, reset) | Wired to Supabase Auth when env vars are set; demo otherwise. |
+| Auth (sign in/up, RTU-only domain, verify, reset) | Wired to Supabase Auth when env vars are set; demo otherwise. Sign-up records which Privacy Notice version the user agreed to (`src/lib/consent.ts`). Deactivated accounts can't sign in. |
 | Data reads and writes (`src/data/api.ts`) | **In-memory mock.** Each function is the swap point for a Supabase query. The UI code does not change. |
 | Match list (`GET /api/reports/:id/matches`) | Worker route is written. The app falls back to local word overlap if the Worker is not running. |
 | Match job queue | `POST /api/reports/:id/match` inserts into `ai_jobs`. **Nothing processes that queue yet.** Add a consumer to the cron handler that calls `rankCandidates` (`worker/ai/groqClient.ts`), which is written and tested but not called anywhere yet. |
-| Expiry (90-day reports, 5-day pickup) | The cron calls `expire_old_reports` / `expire_unclaimed_pickups`. **These SQL functions still have to be written.** |
+| Expiry (90-day reports, 5-day pickup) and reminders | The database functions exist (`run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders`). **The Worker cron still calls the old names** and must be updated. Until then nothing expires. |
 | Photo upload | UI only. It is not yet sent to Supabase Storage. |
 | Email notifications | Toggles only. No sender yet. |
 
-## Database the code expects
+## Database
 
-There are no migrations in this repo yet. These are the names the code uses:
+The schema lives in Supabase project `tifeckfqokdktspjokqm`. A copy is kept in `supabase/` (see `supabase/README.md`); change the database only through a new file in `supabase/migrations/`.
 
-- Tables:
-  - `profiles` (id, full_name, email, role: `student|admin|super_admin`, active)
-  - `categories`, `locations`
-  - `found_items`, with `private_details` and `shelf_tag` readable by admins only (RLS)
-  - `lost_reports`
-  - `claims`
-  - `messages`, with RLS limited to the claimant and admins
-  - `matches`
-  - `ai_jobs`
-  - `notifications`
-  - `flagged_posts`
-- RPCs:
-  - `expire_old_reports()`
-  - `expire_unclaimed_pickups()`
-- Status enums match `src/data/types.ts` exactly.
+Tables (all with row-level security on):
+
+| Table | What it holds | Who can read |
+|---|---|---|
+| `profiles` | name, email, `role` (`student`, `faculty`, `staff`, `admin`, `super_admin`), `is_active`, consent | yourself; admins |
+| `categories`, `locations` | dropdown lists, with `archived` | everyone signed in; super admin edits |
+| `office_settings` | one row: office name, pickup days, report expiry days, holding days | everyone, including signed-out pages |
+| `found_items` | public listing, `ref` like `BG-1001`, status, hold and disposal fields | everyone signed in (hidden items: admins only) |
+| `found_item_private` | `private_details`, `storage_location` (shelf) | admins only |
+| `lost_reports` | public description, `ref` like `LR-1001`, status, `is_hidden`, `status_note` | active, visible reports: everyone signed in; the rest: owner and admins |
+| `lost_report_private` | the owner's private details | owner and admins |
+| `claims`, `claim_answers` | claims (`ref` like `CL-1001`) and proof answers | claimant and admins |
+| `claim_threads`, `claim_messages` | claim-scoped chat, aliases `Owner` / `Office` | claimant and admins |
+| `match_suggestions` | AI-ranked matches for a lost report | report owner and admins |
+| `flags` | students reporting a post | the flagger and admins |
+| `notifications` | in-app notifications | the recipient |
+| `status_history` | every status change | admins; owners for their own records |
+| `admin_activity` | the office activity log, written by triggers | admins |
+| `ai_jobs`, `status_transitions` | AI queue, allowed status changes | server only |
+
+Status changes and office actions go through database functions, which check the role and the allowed transitions:
+
+- Students: `submit_claim`, `withdraw_claim`, `send_message`, `set_lost_report_status` (resolve, close, renew)
+- Admins: `admin_decide_claim`, `complete_handover`, `admin_return_to_custody`, `admin_dispose_item`, `admin_set_hidden`, `admin_set_found_status`
+- Super admin: `admin_set_role`, `admin_set_active`
+- Worker only (service key): `run_expiry_sweep`, `run_pickup_expiry_sweep`, `run_reminders`, `purge_old_records`
+
+Status values in `src/data/types.ts` match the database enums. Lost reports have no `hidden` status in the database; the app shows `is_hidden` as "hidden".
 
 ## Privacy rules enforced in code
 

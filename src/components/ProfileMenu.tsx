@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { Icon } from "./Icon";
 import type { Profile } from "../data/types";
 
-const roleLabel = { student: "Student", admin: "Admin", super_admin: "Super admin" } as const;
+const roleLabel = { student: "Student", faculty: "Faculty", staff: "Staff", admin: "Admin", super_admin: "Super admin" } as const;
 
 /** Avatar button that opens View profile / Settings / Sign out. Closes on outside click, Esc, or choosing an item. */
 export function ProfileMenu({

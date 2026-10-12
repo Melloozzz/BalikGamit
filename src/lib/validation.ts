@@ -3,7 +3,14 @@ import { z } from "zod";
 export const RTU_DOMAIN = "rtu.edu.ph";
 
 export const isRtuEmail = (email: string) =>
-  new RegExp(`^[^\\s@]+@${RTU_DOMAIN.replace(".", "\\.")}$`, "i").test(email.trim());
+  new RegExp(`^[^\\s@]+@${RTU_DOMAIN.replaceAll(".", "\\.")}$`, "i").test(email.trim());
+
+/** Matches the Supabase Auth setting: 8+ characters with lowercase, uppercase, a number and a symbol. */
+export const PASSWORD_RULE = "Use at least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.";
+const strongPassword = z
+  .string()
+  .min(8, PASSWORD_RULE)
+  .refine((p) => /[a-z]/.test(p) && /[A-Z]/.test(p) && /\d/.test(p) && /[^A-Za-z0-9]/.test(p), PASSWORD_RULE);
 
 // Contact details are blocked in reports and claim messages (Terms of Use, "Messaging").
 // Patterns are deliberately narrow so dates (2026-09-22) and room numbers don't trip them.
@@ -43,14 +50,14 @@ export const signUpSchema = z
   .object({
     fullName: z.string().trim().min(2, "Enter your full name."),
     email: z.string().trim().refine(isRtuEmail, "Please sign up with your RTU email address (@rtu.edu.ph)."),
-    password: z.string().min(8, "Use at least 8 characters."),
+    password: strongPassword,
     confirm: z.string(),
     consent: z.literal(true, { message: "You need to agree to the Privacy Notice to create an account." }),
   })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords don't match." });
 
 export const resetPasswordSchema = z
-  .object({ password: z.string().min(8, "Use at least 8 characters."), confirm: z.string() })
+  .object({ password: strongPassword, confirm: z.string() })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "Passwords don't match." });
 
 export const lostReportSchema = z.object({
