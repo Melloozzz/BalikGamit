@@ -106,4 +106,4 @@ These were deliberate fixes for errors in the mockups:
 - Dashboard "Pending Claims" counted differently from the queue's "Needs action" tab. Both now use one rule (pending, needs info, approved and awaiting release), and the card is labelled "Claims needing action".
 - On phones, admin tables become stacked rows instead of scrolling sideways.
 
-Placeholders still to fill: `[Office name, Building]` in `src/data/mock.ts`, and `[email]` / `[date]` in the Privacy Notice.
+Placeholders still to fill: `[Office name, Building]` in `src/data/mock.ts`, and `[date]` in the Privacy Notice.

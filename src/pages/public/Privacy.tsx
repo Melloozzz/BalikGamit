@@ -175,7 +175,7 @@ const sections: LegalSection[] = [
       <>
         <p>For questions about this notice or to exercise your data privacy rights, contact:</p>
         <ul>
-          <li>Project Lead: Mark Vincent A. Bartolay, [email]</li>
+          <li>Project Lead: Mark Vincent A. Bartolay, <a href="mailto:2024-200366@rtu.edu.ph">2024-200366@rtu.edu.ph</a></li>
           <li>Subject Adviser: Prof. Ronel D. Paglomutan, MEng-CpE</li>
           <li>[If RTU has a registered Data Protection Officer for student projects, add their contact here]</li>
         </ul>

@@ -36,4 +36,4 @@ A 502 on `/api/...` in demo mode is expected (no Worker running); pages fall bac
 - Privacy: private item details never reach student pages or the AI service (`toPublic()` in api.ts, whitelist in `worker/ai/groqClient.ts`). Keep both tests passing.
 - Never commit `.dev.vars`, `.env.local`, `.streamlit/secrets.toml`, `node_modules`, `dist`.
 - Do not write to the Lovable project database without the owner's explicit yes.
-- Placeholders still to confirm with the office: `[Office name, Building]`, holding period (`OFFICE.holdingDays`, currently 60), `[holding period]` in Terms, `[email]`/`[date]` in the Privacy Notice.
+- Placeholders still to confirm with the office: `[Office name, Building]`, holding period (`OFFICE.holdingDays`, currently 60), `[holding period]` in Terms, `[date]` in the Privacy Notice.
