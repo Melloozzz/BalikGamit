@@ -34,3 +34,4 @@ Cloudflare builds and deploys the Worker from `main` (GitHub connected). The dom
 - Never commit `.dev.vars`, `.env.local`, `.streamlit/secrets.toml`, `node_modules`, `dist`.
 - Do not write to the Lovable project database without the owner's explicit yes.
 - Placeholders still to confirm with the office: `[Office name, Building]` (`office_settings` in the database), holding period (`office_settings.holding_days`, currently 60), `[holding period]` in Terms, `[date]` in the Privacy Notice and Terms.
+ 
