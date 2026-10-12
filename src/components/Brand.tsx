@@ -26,15 +26,14 @@ export function LogoTile({ size = 48 }: { size?: number }) {
   );
 }
 
-/** Logo tile + wordmark + campus lines, as on the landing and login screens. */
+/** Logo tile + wordmark + campus line, in the header of the public and sign-in pages. */
 export function BrandLockup({ to = "/" }: { to?: string }) {
   return (
     <Link to={to} className="brand-lockup" aria-label="BalikGamit home">
-      <LogoTile size={88} />
+      <LogoTile size={44} />
       <span className="brand-lockup__text">
-        <Wordmark size={45} />
-        <span className="brand-lockup__sub">RIZAL TECHNOLOGICAL UNIVERSITY — PASIG CAMPUS</span>
-        <span className="brand-lockup__sub">LOST &amp; FOUND SYSTEM</span>
+        <Wordmark size={24} />
+        <span className="brand-lockup__sub">RTU–PASIG LOST &amp; FOUND</span>
       </span>
     </Link>
   );

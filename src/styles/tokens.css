@@ -40,6 +40,20 @@
   --font-display: "Space Grotesk", "Instrument Sans", system-ui, sans-serif;
   --font-inter: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
+  /* Type scale for the public and sign-in pages. On desktop these are sizes on the 1700px
+     fit-to-screen canvas, so a 16px body renders at about 14-18px depending on the window. */
+  --fs-display: 48px; /* hero titles */
+  --fs-h2: 32px; /* section titles */
+  --fs-h3: 24px; /* card titles */
+  --fs-h4: 20px; /* step and feature titles */
+  --fs-lead: 18px; /* intro paragraphs */
+  --fs-body: 16px;
+  --fs-small: 14px; /* labels, footer links */
+  --fs-caption: 13px; /* eyebrows, fine print */
+  --header-h: 72px;
+  /* Side padding that lines full-width bars up with .container content (max 1284px). */
+  --page-pad: max(var(--gutter), calc((100% - 1284px) / 2));
+
   --gutter: clamp(16px, calc(5.4 * var(--vw)), 78px);
   --radius: 12px;
   --radius-lg: 24px;

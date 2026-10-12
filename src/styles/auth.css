@@ -23,16 +23,21 @@
   opacity: 0.288;
   pointer-events: none;
 }
+/* The sign-in pages are taller than the photo on phones; stretch it to the bottom (the footer covers the rest). */
+.auth__photo {
+  height: 100%;
+  min-height: 1026px;
+}
 /* Two columns from 901px up. Sizes follow the Figma 1440×1024 frame at full size and
    shrink with both width (vw) and height (vh), so 125%/150% Windows scaling still fits. */
 .auth__top {
   position: relative;
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(400px, 607px);
-  column-gap: clamp(24px, calc(4 * var(--vw)), 64px);
-  align-items: start;
-  padding: 0 clamp(16px, calc(4.2 * var(--vw)), 60px) clamp(32px, calc(6 * var(--vh)), 64px) clamp(16px, calc(3.2 * var(--vw)), 46px);
+  grid-template-columns: minmax(0, 1fr) minmax(380px, 500px);
+  column-gap: clamp(24px, calc(5 * var(--vw)), 80px);
+  align-items: center;
+  padding: clamp(32px, calc(6 * var(--vh)), 64px) var(--page-pad);
 }
 .auth__left {
   min-width: 0;
@@ -40,45 +45,39 @@
   flex-direction: column;
 }
 .auth__hero {
-  padding: clamp(40px, calc(15 * var(--vh)), 168px) 0 clamp(24px, calc(4 * var(--vh)), 48px) clamp(0px, calc(3.1 * var(--vw)), 45px);
   display: flex;
   flex-direction: column;
-  gap: clamp(20px, calc(4 * var(--vh)), 48px);
+  gap: 24px;
 }
 
+/* Header logo: tile + wordmark + one campus line. */
 .brand-lockup {
   display: flex;
-  align-items: flex-start;
-  gap: 22px;
-  padding-top: clamp(24px, calc(5 * var(--vh)), 53px);
+  align-items: center;
+  gap: 12px;
   color: #fff;
   text-decoration: none;
-}
-.brand-lockup .logo-tile {
-  margin-top: 9px;
 }
 .brand-lockup__text {
   display: flex;
   flex-direction: column;
-}
-.brand-lockup__text .wordmark {
-  margin-bottom: 16px;
+  line-height: 1.1;
 }
 .brand-lockup__sub {
+  margin-top: 2px;
   font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 15px;
-  line-height: 1.2;
-  margin-top: 5px;
-  color: #fff;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #cbcbcb;
 }
 
 .hero-title {
   max-width: 712px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(30px, calc(3.65 * var(--vw)), 52.6px);
-  line-height: 1.28;
+  font-size: clamp(30px, calc(3.2 * var(--vw)), var(--fs-display));
+  line-height: 1.15;
   color: #fff;
 }
 .hero-title .gold {
@@ -87,19 +86,18 @@
 .hero-lead {
   max-width: 544px;
   font-family: var(--font-inter);
-  font-size: clamp(17px, calc(1.65 * var(--vw)), 23.7px);
-  line-height: 1.22;
+  font-size: var(--fs-lead);
+  line-height: 1.5;
   color: #d9d9d9;
 }
 
 .auth__card {
   position: relative;
   min-width: 0;
-  margin-top: clamp(24px, calc(11 * var(--vh)), 117px);
-  padding: clamp(28px, calc(5.5 * var(--vh)), 56px) clamp(24px, calc(4.6 * var(--vw)), 74px) clamp(28px, calc(6 * var(--vh)), 64px);
-  border-radius: 36px;
+  padding: 40px clamp(24px, calc(3 * var(--vw)), 44px);
+  border-radius: 24px;
   background: rgba(217, 217, 217, 0.2);
-  box-shadow: 17px 16px 8px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -107,7 +105,7 @@
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: clamp(14px, calc(2.2 * var(--vh)), 22px);
+  gap: 16px;
 }
 .auth-form--tight {
   gap: 14px;
@@ -121,14 +119,15 @@
   flex-direction: column;
   align-items: center;
   font-family: var(--font-body);
-  font-size: clamp(26px, min(calc(2.85 * var(--vw)), calc(4.4 * var(--vh))), 41px);
+  font-size: var(--fs-small);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--gold);
-  line-height: 1.25;
-  margin-bottom: 8px;
+  line-height: 1.3;
+  margin-bottom: 4px;
 }
 .auth-welcome__name {
+  font-size: var(--fs-h2);
   font-family: var(--font-display);
   color: #fff;
   letter-spacing: -0.015em;
@@ -136,7 +135,7 @@
 .auth-join {
   text-align: center;
   font-family: var(--font-display);
-  font-size: clamp(30px, calc(3.3 * var(--vw)), 48px);
+  font-size: var(--fs-h2);
   font-weight: 700;
   color: #fff;
 }
@@ -148,13 +147,13 @@
   text-align: center;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(30px, calc(2.85 * var(--vw)), 41px);
-  letter-spacing: -0.04em;
-  line-height: 1.28;
+  font-size: var(--fs-h2);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
   color: var(--gold);
 }
 .auth-text {
-  font-size: clamp(16px, calc(1.3 * var(--vw)), 18.5px);
+  font-size: var(--fs-body);
   line-height: 1.4;
 }
 .auth-text--center {
@@ -165,16 +164,16 @@
 }
 .auth-text--strong {
   font-weight: 700;
-  font-size: 20px;
+  font-size: var(--fs-lead);
 }
 .auth-email {
-  margin-top: -12px;
-  font-size: 20px;
+  margin-top: -8px;
+  font-size: var(--fs-lead);
   font-weight: 700;
 }
 .auth-icon {
-  width: 88px;
-  height: 88px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -184,21 +183,21 @@
 }
 
 .auth .field {
-  gap: clamp(6px, calc(1.2 * var(--vh)), 12px);
+  gap: 6px;
 }
 .auth .field__label {
   font-family: var(--font-inter);
   font-weight: 700;
-  font-size: clamp(16px, calc(1.4 * var(--vw)), 20px);
+  font-size: var(--fs-small);
   color: #fff;
 }
 .auth .input {
-  min-height: clamp(48px, calc(6.6 * var(--vh)), 64px);
-  padding: 0 clamp(16px, calc(2 * var(--vw)), 29px);
-  border-radius: clamp(16px, calc(2.4 * var(--vh)), 23.4px);
-  border: 1.17px solid #000;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid #000;
   font-family: var(--font-inter);
-  font-size: clamp(16px, calc(1.3 * var(--vw)), 18.5px);
+  font-size: var(--fs-body);
   color: #1f1d1d;
 }
 .auth .input--with-btn {
@@ -215,35 +214,32 @@
   color: #ffb4b4;
   font-weight: 600;
 }
-.auth-form--tight .input {
-  min-height: 54px;
-}
 .auth-error {
   padding: 10px 14px;
   border-radius: 8px;
   background: #ecbfd0;
   color: var(--error);
   text-align: center;
-  font-size: 15px;
+  font-size: var(--fs-small);
 }
 .auth-forgot {
   align-self: flex-end;
   margin-top: -6px;
   color: #fff;
-  font-weight: 700;
-  font-size: clamp(15px, calc(1.2 * var(--vw)), 17px);
+  font-weight: 600;
+  font-size: var(--fs-small);
 }
 .auth .btn--navy {
   background: var(--navy-900);
-  border-radius: 14px;
-  min-height: clamp(48px, calc(6 * var(--vh)), 58px);
+  border-radius: 12px;
+  min-height: 48px;
   font-family: var(--font-inter);
-  font-size: clamp(17px, calc(1.4 * var(--vw)), 20px);
+  font-size: var(--fs-body);
   font-weight: 700;
 }
 .auth-switch {
   text-align: center;
-  font-size: clamp(16px, calc(1.3 * var(--vw)), 18.5px);
+  font-size: var(--fs-small);
 }
 .auth-switch a {
   color: var(--gold);
@@ -254,12 +250,12 @@
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  font-size: 15px;
+  font-size: var(--fs-small);
   line-height: 1.45;
 }
 .consent input {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   margin: 1px 0 0;
   flex-shrink: 0;
   accent-color: var(--navy-900);
@@ -295,43 +291,31 @@
   border-radius: 10px;
 }
 
-/* How it works strip and privacy banner */
-/* "How it Works" strip: the divider sits above it and the title heads the steps. */
+/* "How it Works" strip under the form, above the site footer. */
 .how {
   position: relative;
-  border-top: 1px solid rgba(217, 217, 217, 0.75);
-  padding-top: 20px;
+  border-top: 1px solid rgba(217, 217, 217, 0.4);
+  padding: 28px var(--page-pad) 32px;
 }
 .how__title {
-  padding-left: clamp(16px, calc(6.3 * var(--vw)), 91px);
   font-family: var(--font-body);
   font-weight: 700;
-  font-size: 23px;
-  line-height: 28px;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: #fffdfd;
+  font-size: var(--fs-caption);
+  letter-spacing: 0.12em;
+  color: var(--gold);
 }
 .how__steps {
   list-style: none;
   margin: 0;
-  padding: 21px clamp(16px, calc(6.2 * var(--vw)), 89px) 20px clamp(16px, calc(6.3 * var(--vw)), 91px);
-  display: flex;
-  flex-wrap: wrap;
+  padding: 16px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
 }
 .how__steps li {
   display: flex;
-  gap: 30px;
+  gap: 16px;
   align-items: flex-start;
-  flex: 0 1 476px;
-  min-width: 240px;
-}
-.how__steps li:nth-child(2) {
-  flex-basis: 461px;
-}
-.how__steps li:last-child {
-  flex: 1 1 240px;
 }
 .how__icon {
   color: var(--gold);
@@ -339,89 +323,31 @@
 }
 .how__steps strong {
   display: block;
-  font-size: 18.5px;
-  margin-bottom: 12px;
+  font-size: var(--fs-body);
+  margin-bottom: 2px;
 }
 .how__steps span {
   display: block;
-  max-width: 185px;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1.2;
-  color: #aeacac;
-}
-/* Privacy line: one left-aligned row under How it Works (Figma Login Page). */
-.auth__banner {
-  position: relative;
-  min-height: 101px;
-  padding: 20px var(--gutter) 20px clamp(16px, calc(4.7 * var(--vw)), 68px);
-  background: var(--navy-900);
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 4px;
-}
-.auth__banner svg {
-  width: 19px;
-  height: 19px;
-  flex-shrink: 0;
-}
-.auth__banner p {
-  max-width: none;
-  font-size: clamp(15px, calc(1.38 * var(--vw)), 19.9px);
-  line-height: 1.21;
-  color: #aeacac;
+  font-size: var(--fs-small);
+  line-height: 1.4;
+  color: #cbcbcb;
 }
 
 @media (max-width: 900px) {
   .auth__top {
     grid-template-columns: minmax(0, 1fr);
-    padding-bottom: 40px;
-  }
-  .auth__hero {
-    padding-top: 48px;
+    row-gap: 32px;
   }
   .auth__card {
     margin: 0 auto;
     width: 100%;
-    max-width: 607px;
+    max-width: 500px;
   }
 }
 @media (max-width: 600px) {
-  .brand-lockup {
-    padding-top: 24px;
-    gap: 14px;
-  }
-  .brand-lockup .logo-tile {
-    width: 60px !important;
-    height: 60px !important;
-  }
-  .brand-lockup .logo-tile img {
-    height: 46px;
-    width: auto;
-  }
-  .brand-lockup__text .wordmark {
-    font-size: 32px !important;
-    margin-bottom: 8px;
-  }
-  .brand-lockup__sub {
-    font-size: 11px;
-  }
-  .auth__hero {
-    padding: 36px 0 8px;
-    gap: 20px;
-  }
   .auth__card {
-    padding: 32px 20px;
-    border-radius: 24px;
+    padding: 28px 20px;
+    border-radius: 20px;
     box-shadow: none;
-  }
-  .auth .input {
-    min-height: 54px;
-    padding: 0 18px;
-    font-size: 16px;
-  }
-  .auth .field__label {
-    font-size: 17px;
   }
 }

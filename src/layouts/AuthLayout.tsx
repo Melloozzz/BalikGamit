@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { BrandLockup } from "../components/Brand";
+import { SiteHeader } from "../components/SiteHeader";
+import { SiteFooter } from "../components/Footer";
 import { Icon } from "../components/Icon";
-import bg from "../assets/rtu-building.jpg";
+import { PhotoBg } from "../components/PhotoBg";
 
 const steps = [
   { icon: "search", title: "1. Search", text: "Browse items reported around campus." },
@@ -9,14 +10,14 @@ const steps = [
   { icon: "bagUp", title: "3. Recover", text: "Collect it from the office that holds it." },
 ] as const;
 
-/** Shared frame for Login, Sign Up, password reset and email checks (Figma "Login Page"). */
+/** Shared frame for Login, Sign Up, password reset and email checks: site header, hero + form card, How it Works, site footer. */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth">
-      <img src={bg} alt="" className="auth__photo" />
+      <PhotoBg photo="sky" className="auth__photo" />
+      <SiteHeader />
       <div className="auth__top">
         <div className="auth__left">
-          <BrandLockup />
           <div className="auth__hero">
             <h1 className="hero-title">
               Lost something on campus? <span className="gold">Find it here.</span>
@@ -36,7 +37,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <ol className="how__steps">
           {steps.map((s) => (
             <li key={s.title}>
-              <Icon name={s.icon} size={52} strokeWidth={1.7} className="how__icon" />
+              <Icon name={s.icon} size={36} strokeWidth={1.7} className="how__icon" />
               <div>
                 <strong>{s.title}</strong>
                 <span>{s.text}</span>
@@ -45,13 +46,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           ))}
         </ol>
       </section>
-      <footer className="auth__banner">
-        <Icon name="info" size={28} />
-        <p>
-          BalikGamit only asks for the details needed to confirm a belonging is yours. Item listings are visible only to signed-in
-          RTU users. Report descriptions are processed by a third-party AI service to suggest possible matches.
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

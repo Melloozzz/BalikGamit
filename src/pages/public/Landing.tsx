@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { Icon, type IconName } from "../../components/Icon";
-import bg from "../../assets/rtu-building.jpg";
+import { PhotoBg } from "../../components/PhotoBg";
 
 const steps: { icon: IconName; title: string; text: string }[] = [
   { icon: "search", title: "1. Search", text: "Browse items reported around campus." },
@@ -19,7 +19,7 @@ export function Landing() {
   return (
     <>
       <section className="landing-hero">
-        <img src={bg} alt="" className="landing-hero__photo" />
+        <PhotoBg photo="sky" className="landing-hero__photo" />
         <div className="container landing-hero__inner">
           <h1 className="hero-title hero-title--landing">
             Lost something on campus? <span className="gold">Find it here.</span>
@@ -47,7 +47,7 @@ export function Landing() {
           <ol className="steps-row">
             {steps.map((s) => (
               <li key={s.title}>
-                <Icon name={s.icon} size={34} className="gold" />
+                <Icon name={s.icon} size={28} className="gold" />
                 <div>
                   <strong>{s.title}</strong>
                   <span>{s.text}</span>
@@ -58,7 +58,8 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="audience">
+      <section className="audience photo-section">
+        <PhotoBg photo="sky" />
         <div className="container audience__grid">
           <div className="glass-card">
             <h2 className="glass-card__title">For students</h2>
@@ -87,7 +88,7 @@ export function Landing() {
           <div className="features">
             {features.map((f) => (
               <div key={f.title} className="feature">
-                <Icon name={f.icon} size={34} className="gold" />
+                <Icon name={f.icon} size={28} className="gold" />
                 <h3>{f.title}</h3>
                 <p>{f.text}</p>
               </div>
@@ -96,8 +97,10 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="cta-band">
+      <section className="cta-band photo-section">
+        <PhotoBg photo="sky" />
         <h2>Ready to find what you lost?</h2>
+        <p>Sign up with your RTU email to report a lost item or claim one that was found.</p>
         <Link to="/signup" className="btn btn--gold btn--lg">
           Create your account
         </Link>

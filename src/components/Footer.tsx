@@ -21,8 +21,8 @@ export function SiteFooter() {
       <div className="site-footer__grid">
         <div className="site-footer__brand">
           <Link to="/" className="site-footer__logo" aria-label="BalikGamit home">
-            <LogoTile size={86} />
-            <Wordmark size={53} />
+            <LogoTile size={40} />
+            <Wordmark size={26} />
           </Link>
           <p className="site-footer__tag">Lost something on campus? Find it here.</p>
           <address>
