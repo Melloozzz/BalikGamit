@@ -41,9 +41,9 @@ app.post("/admin/invite", async (c) => {
   const existing = await rest<{ id: string }[]>(c.env, `profiles?email=eq.${encodeURIComponent(email)}&select=id`);
   if (existing.length) return c.json({ error: "That email already has an account. Add them again and they'll get the role right away." }, 409);
 
-  // The invite link signs them in on the Reset password page, where they choose a password.
+  // The invite link signs them in on the Set up your account page, where they choose a password.
   const origin = new URL(c.req.url).origin;
-  const invited = await auth<{ id: string }>(c.env, `invite?redirect_to=${encodeURIComponent(`${origin}/reset-password`)}`, {
+  const invited = await auth<{ id: string }>(c.env, `invite?redirect_to=${encodeURIComponent(`${origin}/set-password`)}`, {
     method: "POST",
     body: JSON.stringify({ email, data: { full_name: fullName } }),
   }).catch(() => null);

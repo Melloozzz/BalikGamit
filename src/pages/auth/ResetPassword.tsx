@@ -6,7 +6,7 @@ import { AuthError, useAuth } from "../../auth/AuthContext";
 import { fieldErrors, resetPasswordSchema } from "../../lib/validation";
 
 export function ResetPassword() {
-  const { updatePassword } = useAuth();
+  const { updatePassword, signOut } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ password: "", confirm: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -24,6 +24,8 @@ export function ResetPassword() {
     setErrors({});
     try {
       await updatePassword(form.password);
+      // The reset link signed them in; sign out (on every device) so they sign in again with the new password.
+      await signOut();
       setDone(true);
     } catch (err) {
       // A weak password is the user's to fix here; anything else means the reset link no longer works.
