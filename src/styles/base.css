@@ -137,7 +137,7 @@ button {
   border-radius: 10px;
   border: 1px solid transparent;
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -150,12 +150,12 @@ button {
 .btn--lg {
   min-height: 52px;
   padding: 14px 28px;
-  font-size: 17px;
+  font-size: var(--fs-body);
 }
 .btn--sm {
   min-height: 40px;
   padding: 8px 18px;
-  font-size: 15px;
+  font-size: var(--fs-small);
 }
 .btn--block {
   width: 100%;
@@ -229,7 +229,7 @@ button {
   padding: 6px 0;
   color: var(--navy-800);
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-small);
   text-decoration: underline;
 }
 .link-btn--danger {
@@ -264,18 +264,18 @@ button {
 }
 .field__label {
   font-weight: 600;
-  font-size: 15px;
+  font-size: var(--fs-small);
   color: var(--ink);
 }
 .field__req {
   color: var(--red);
 }
 .field__hint {
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .field__error {
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: var(--red);
   font-weight: 500;
 }
@@ -286,7 +286,7 @@ button {
   border: 1px solid #b8bcc6;
   border-radius: 10px;
   background: #fff;
-  font-size: 15px;
+  font-size: var(--fs-body);
 }
 .input:disabled,
 .input[readonly] {
@@ -365,13 +365,13 @@ button {
   gap: 6px;
   padding: 3px 12px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   white-space: nowrap;
 }
 .badge--lg {
   padding: 6px 16px;
-  font-size: 15px;
+  font-size: var(--fs-small);
 }
 .badge__dot {
   width: 8px;
@@ -413,14 +413,14 @@ button {
   border-radius: 999px;
   background: var(--gold-soft);
   color: var(--navy-800);
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
 }
 .likelihood {
   display: inline-block;
   padding: 3px 12px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: var(--fs-caption);
   font-weight: 700;
 }
 .likelihood--high {
@@ -444,7 +444,7 @@ button {
   align-items: flex-start;
   padding: 12px 16px;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: var(--fs-small);
 }
 .alert > svg {
   flex-shrink: 0;
@@ -484,7 +484,7 @@ button {
 }
 .empty__title {
   font-weight: 700;
-  font-size: 18px;
+  font-size: var(--fs-lead);
   color: var(--heading);
 }
 .empty__body {
@@ -497,7 +497,7 @@ button {
   align-self: flex-start;
   min-height: 44px;
   color: var(--ink-3);
-  font-size: 18px;
+  font-size: var(--fs-body);
   text-decoration: none;
 }
 .back-link:hover {
@@ -519,7 +519,7 @@ button {
   min-width: 0;
 }
 .eyebrow {
-  font-size: 15px;
+  font-size: var(--fs-small);
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--blue);
@@ -529,18 +529,18 @@ button {
   letter-spacing: 0.08em;
 }
 .page-title {
-  font-size: clamp(36px, calc(4.5 * var(--vw)), 56px);
+  font-size: clamp(30px, calc(3.2 * var(--vw)), var(--fs-display));
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
   color: var(--heading);
 }
 .page-title--xl {
-  font-size: clamp(40px, calc(5 * var(--vw)), 61px);
+  font-size: clamp(30px, calc(3.2 * var(--vw)), var(--fs-display));
   color: var(--navy-900);
 }
 .page-lead {
-  font-size: 18px;
+  font-size: var(--fs-lead);
   color: var(--ink-2);
 }
 
@@ -601,5 +601,5 @@ button {
 }
 .notfound h1 {
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: var(--fs-h2);
 }
