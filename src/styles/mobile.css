@@ -49,15 +49,15 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  font-size: 17px;
+  font-size: var(--fs-lead);
   color: var(--heading);
 }
 .tools__text > span {
-  font-size: 15px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .tools__only {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--heading);
   background: var(--blue-soft);
@@ -109,11 +109,11 @@
   min-width: 0;
 }
 .account__who strong {
-  font-size: 20px;
+  font-size: var(--fs-h4);
   color: #fff;
 }
 .account__who span {
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: #c9d5ea;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -152,11 +152,11 @@
 }
 .account__label {
   flex: 1;
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 .account__count {
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .account__badge {
@@ -177,7 +177,7 @@
   border-radius: 16px;
   background: #fff;
   color: var(--red);
-  font-size: 16px;
+  font-size: var(--fs-body);
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -678,7 +678,7 @@
 }
 .drawer__foot .btn {
   min-height: 50px;
-  font-size: 16px;
+  font-size: var(--fs-body);
 }
 .drawer--site .drawer__foot .btn--gold {
   color: var(--navy-900);
