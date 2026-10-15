@@ -71,7 +71,10 @@ async function chat(env: { GROQ_API_KEY: string; GROQ_MODEL: string }, system: s
 
 const EXTRACT = `You read one lost-or-found item description from a campus lost-and-found and return its attributes as JSON:
 {"item_type":string|null,"colors":string[],"brand":string|null,"material":string|null,"size":string|null,"features":string[]}.
-item_type is one or two plain English words (e.g. "umbrella", "wallet", "phone"). colors are simple English color words.
+item_type is one or two plain English words (e.g. "umbrella", "wallet", "phone"; "payong" is "umbrella").
+colors are single basic English color words (black, white, gray, red, orange, yellow, green, blue, purple, pink, brown,
+silver, gold), so shades become their base color: "dark" or "itim" is "black", "navy blue" is "blue".
+features are identifying marks and details (stickers, scratches or "gasgas", engravings, prints, keychains, damage), a few words each.
 Use null or [] when the text doesn't say. Never invent details. The text may be in English, Filipino or Taglish; answer in English.`;
 
 const clean = (s: unknown) => (typeof s === "string" && s.trim() ? s.trim().toLowerCase().slice(0, 40) : null);
@@ -92,7 +95,10 @@ export async function extractAttributes(env: { GROQ_API_KEY: string; GROQ_MODEL:
 
 const RANK = `You rank found items against a description of a lost item for a campus lost-and-found.
 Return JSON: {"ranked":[{"id":string,"likelihood":"high"|"medium"|"low","why":string,"but"?:string}]}.
-Only include candidates that could plausibly match. "why" and "but" are one short plain-English clause each.
+Match by meaning, not exact words: "dark payong" can be a "black umbrella", and "black wallet" can be a "dark leather bifold".
+Only include candidates that could plausibly match; leave out clear non-matches.
+"why" is a reason the candidate MAY be the lost item. "but" is optional: a real difference or doubt. Each is one short
+plain-English clause. An item found on or after the date it was lost is normal, so it is never a "but".
 Never invent details that are not in the candidate fields. The description may be in English, Filipino or Taglish.`;
 
 /** Step 3 of matching: the model ranks the prefiltered candidates. */
