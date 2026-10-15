@@ -12,9 +12,14 @@ export const supabaseConfigured = Boolean(url && anonKey);
  * (AuthContext). Read from the link before the Supabase client below clears it from the address bar.
  */
 export const SETTING_PASSWORD_KEY = "bg-setting-password";
-if (typeof window !== "undefined" && /[#&?]type=(recovery|invite)\b/.test(window.location.hash + window.location.search)) {
+if (typeof window !== "undefined") {
+  const link = window.location.hash + window.location.search;
+  const type = /[#&?]type=([a-z_]+)/.exec(link)?.[1];
   try {
-    localStorage.setItem(SETTING_PASSWORD_KEY, "1");
+    if (type === "recovery" || type === "invite") localStorage.setItem(SETTING_PASSWORD_KEY, "1");
+    // Any other email link (e.g. a sign-up confirmation) starts a normal session, so a mark left
+    // by an unfinished reset in this browser must not hide it.
+    else if (type || /[#&]access_token=/.test(link)) localStorage.removeItem(SETTING_PASSWORD_KEY);
   } catch {
     // Storage blocked: the reset page still works; only the extra guard is lost.
   }
