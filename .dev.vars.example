@@ -4,3 +4,5 @@ SUPABASE_SERVICE_ROLE_KEY=
 # Optional: email for unread claim messages (https://resend.com)
 RESEND_API_KEY=
 EMAIL_FROM=
+# Where the button in message emails points when testing locally.
+APP_URL=http://localhost:8787

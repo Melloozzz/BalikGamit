@@ -22,8 +22,11 @@
     "SUPABASE_URL": "https://tifeckfqokdktspjokqm.supabase.co",
     // Sender for claim-message emails (worker/email.ts); balikgamit.site is verified in Resend.
     "EMAIL_FROM": "BalikGamit <no-reply@balikgamit.site>",
+    // Site address for the button in message emails. Before launch the team uses the dev address.
+    "APP_URL": "https://dev.balikgamit.site",
     // "true": balikgamit.site shows the under-construction page; dev.balikgamit.site (team,
     // behind Cloudflare Access) and local dev stay open. Set to "false" and deploy to launch.
+    // At launch, change both: COMING_SOON to "false" and APP_URL to "https://balikgamit.site".
     "COMING_SOON": "true"
   },
   // Cron (proposal: Cloudflare Cron Trigger): every 3 days keep Supabase awake and purge old records;
