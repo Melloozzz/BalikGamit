@@ -204,13 +204,19 @@
 }
 
 /* Browse Items */
+/* Home: tighter spacing so the first row of cards shows without scrolling on a laptop. */
+@media (min-width: 601px) {
+  .home.stack-lg {
+    gap: 20px;
+  }
+}
 .search-panel {
-  padding: 28px 35px;
+  padding: 20px 28px;
   border-radius: var(--radius-lg);
   background: var(--card);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 .search-panel__label {
   display: flex;
@@ -356,15 +362,15 @@
   background: var(--card);
 }
 .item-card__photo {
-  aspect-ratio: 412 / 309;
+  aspect-ratio: 16 / 9;
   height: auto;
 }
 .item-card__body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
-  padding: 20px 24px 22px;
+  gap: 8px;
+  padding: 16px 20px 18px;
   flex: 1;
 }
 .item-card__title {
@@ -390,7 +396,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px 28px;
-  padding: 14px 0 12px;
+  padding: 10px 0 8px;
   border-bottom: 1px solid #a9adb5;
   font-size: var(--fs-small);
   color: var(--ink-3);
@@ -552,12 +558,12 @@
 
 /* Forms (Report a lost item) */
 .form-card {
-  padding: clamp(20px, calc(3.5 * var(--vw)), 52px);
+  padding: clamp(20px, calc(2.2 * var(--vw)), 32px);
   border-radius: var(--radius-lg);
   background: var(--card);
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: 20px;
 }
 .form-card .field__label {
   font-family: var(--font-inter);
@@ -594,7 +600,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 210px;
+  min-height: 160px;
   padding: 20px;
   border-radius: 12px;
   border: 1.5px dashed #8a8f99;
@@ -632,7 +638,7 @@
 /* Confirmation cards */
 .done-card {
   margin: 0 auto;
-  padding: 48px clamp(20px, calc(5 * var(--vw)), 56px);
+  padding: 32px clamp(20px, calc(4 * var(--vw)), 48px);
   border-radius: 20px;
   background: #fff;
   border: 1px solid var(--card);
@@ -640,41 +646,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-align: center;
 }
-.done-card--blue {
-  max-width: 700px;
-  width: 100%;
-  background: var(--done);
-  border: 0;
-  box-shadow: none;
-}
 .done-card__icon {
-  width: 88px;
-  height: 88px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: var(--green-bg);
   color: var(--green);
 }
-.done-card__icon--ring {
-  background: none;
-  border: 3px solid var(--green);
-}
 .done-card__title {
-  font-size: clamp(30px, calc(3.2 * var(--vw)), var(--fs-display));
+  font-size: var(--fs-h2);
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--heading);
 }
-.done-card__title--gold {
-  font-family: var(--font-display);
-  color: var(--gold);
-}
 .done-card__ref {
-  margin-top: -8px;
+  margin-top: -6px;
   font-size: var(--fs-small);
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -695,7 +686,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px;
+  padding: 12px;
   border-radius: 12px;
   background: var(--card);
   text-align: left;
@@ -722,7 +713,7 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 14px;
+  gap: 10px;
   text-align: left;
 }
 .numbered li {
@@ -855,6 +846,12 @@
   padding: 28px 32px;
   border-radius: var(--radius);
   background: var(--card);
+}
+.report-card__photo {
+  width: 140px;
+  height: 140px;
+  border-radius: 10px;
+  flex-shrink: 0;
 }
 .report-card__main {
   flex: 1 1 380px;

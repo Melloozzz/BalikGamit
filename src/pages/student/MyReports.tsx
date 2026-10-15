@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
-import { Alert, BackButton, CategoryPill, EmptyState, Loading, PageHead, ReportBadge } from "../../components/ui";
+import { Alert, BackButton, CategoryPill, EmptyState, ItemPhoto, Loading, PageHead, ReportBadge } from "../../components/ui";
 import { listMyReports, setReportStatus } from "../../data/api";
 import type { LostReport } from "../../data/types";
 import { useAuth } from "../../auth/AuthContext";
@@ -50,6 +50,7 @@ export function MyReports() {
         <ul className="stack">
           {shown.map((r) => (
             <li key={r.id} className="report-card">
+              <ItemPhoto src={r.photo} alt={r.title} className="report-card__photo" />
               <div className="report-card__main">
                 <div className="report-card__badges">
                   <CategoryPill>{r.category}</CategoryPill>
