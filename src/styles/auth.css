@@ -191,6 +191,12 @@
   font-size: var(--fs-small);
   color: #fff;
 }
+/* The default hint gray is for white pages; on the navy auth background it can't be read. */
+.auth .field__hint {
+  font-family: var(--font-inter);
+  font-size: var(--fs-small);
+  color: rgba(255, 255, 255, 0.8);
+}
 .auth .input {
   min-height: 48px;
   padding: 0 16px;

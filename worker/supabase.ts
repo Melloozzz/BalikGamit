@@ -11,6 +11,8 @@ export interface Env {
   /** Optional: email for unread claim messages. Without it, no emails are sent. */
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
+  /** Site address for links in emails (no trailing slash). Defaults to https://balikgamit.site. */
+  APP_URL?: string;
   /** "true" shows the coming-soon page on the public domain (worker/comingSoon.ts). */
   COMING_SOON?: string;
   /** Optional secret: /?preview=<key> lets the team past the coming-soon page. */

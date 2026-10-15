@@ -15,6 +15,7 @@ import { NotFound } from "./pages/public/NotFound";
 import { Login } from "./pages/auth/Login";
 import { SignUp } from "./pages/auth/SignUp";
 import { CheckEmail } from "./pages/auth/CheckEmail";
+import { SetPassword } from "./pages/auth/SetPassword";
 import { ForgotPassword } from "./pages/auth/ForgotPassword";
 import { ResetLinkSent } from "./pages/auth/ResetLinkSent";
 import { ResetPassword } from "./pages/auth/ResetPassword";
@@ -101,6 +102,7 @@ export function App() {
         <Route path="reset-link-sent" element={<ResetLinkSent />} />
         <Route path="reset-password" element={<ResetPassword />} />
         <Route path="reset-password/expired" element={<LinkExpired />} />
+        <Route path="set-password" element={<SetPassword />} />
 
         <Route
           element={

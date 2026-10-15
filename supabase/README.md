@@ -25,3 +25,6 @@ These are set in the Supabase dashboard, not by the files above:
 
 - Authentication → Sign In / Providers → Email: minimum password length 8; password requirements: lowercase, uppercase, digits and symbols. The app's sign-up form checks the same rule (`src/lib/validation.ts`).
 - Leaked password protection: Pro plan only, so it is off.
+- Authentication → Emails → SMTP Settings: custom SMTP through Resend (`smtp.resend.com`, port 465, user `resend`, password = Resend API key), sender `no-reply@balikgamit.site`. The domain is verified in Resend; its DNS records are in Cloudflare.
+- Authentication → Emails → Templates → Confirm sign up: subject "Confirm your BalikGamit account", body pasted from `templates/confirm-signup.html`.
+- Authentication → Emails → Templates → Reset password: subject "Set your BalikGamit password", body pasted from `templates/reset-password.html`.

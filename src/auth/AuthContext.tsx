@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { isOfficeRole, type Profile } from "../data/types";
 import { loadReference } from "../data/reference";
-import { supabase } from "../lib/supabase";
+import { SETTING_PASSWORD_KEY, supabase } from "../lib/supabase";
 import { PASSWORD_RULE, isRtuEmail } from "../lib/validation";
 import { PRIVACY_NOTICE_VERSION } from "../lib/consent";
 
@@ -11,7 +11,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<Profile>;
   signUp: (fullName: string, email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
+  requestPasswordReset: (email: string, page?: "/reset-password" | "/set-password") => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   /** Re-read the signed-in profile, e.g. after changing your name in Settings. */
   refreshProfile: () => Promise<void>;
@@ -22,7 +22,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export class AuthError extends Error {
-  constructor(public code: "wrong_domain" | "invalid_credentials" | "inactive" | "weak_password" | "unknown", message: string) {
+  constructor(public code: "wrong_domain" | "invalid_credentials" | "unconfirmed" | "inactive" | "weak_password" | "unknown", message: string) {
     super(message);
   }
 }
@@ -51,10 +51,28 @@ async function loadProfile(userId: string): Promise<Profile | null> {
     : null;
 }
 
+/** True while the session came from a reset or invite link and no password has been set yet. */
+function settingPassword(): boolean {
+  try {
+    return localStorage.getItem(SETTING_PASSWORD_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function clearSettingPassword() {
+  try {
+    localStorage.removeItem(SETTING_PASSWORD_KEY);
+  } catch {
+    // nothing to clear
+  }
+}
+
 /** Profile plus the reference lists (categories and locations need a signed-in user). */
 async function loadSession(userId: string | undefined): Promise<Profile | null> {
   const [profile] = await Promise.all([userId ? loadProfile(userId) : Promise.resolve(null), loadReference()]);
-  return profile && profile.active ? profile : null;
+  // A reset/invite link session only works on the Reset Password page; everywhere else they're signed out.
+  return profile && profile.active && !settingPassword() ? profile : null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -86,7 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isRtuEmail(email)) throw new AuthError("wrong_domain", "Please sign up with your RTU email address (@rtu.edu.ph).");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error?.code === "email_not_confirmed")
+      throw new AuthError("unconfirmed", "Confirm your email first: open the link we sent to your RTU email, then sign in.");
     if (error || !data.user) throw new AuthError("invalid_credentials", "Incorrect email or password.");
+    clearSettingPassword();
     const profile = await loadProfile(data.user.id);
     if (!profile) throw new AuthError("unknown", "Your account isn't set up yet. Try again in a minute.");
     if (!profile.active) {
@@ -115,12 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    clearSettingPassword();
     setUser(null);
   }, []);
 
-  const requestPasswordReset = useCallback(async (email: string) => {
+  const requestPasswordReset = useCallback(async (email: string, page = "/reset-password") => {
     // Always succeeds from the user's point of view, so the page never reveals whether an account exists.
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/reset-password` });
+    // `page` is where the link opens: /set-password for an invited admin whose invite link expired.
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}${page}` });
   }, []);
 
   const updatePassword = useCallback(async (password: string) => {
