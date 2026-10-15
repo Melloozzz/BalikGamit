@@ -62,13 +62,14 @@ export function ReportLost() {
       if (fromReports) navigate(-1);
       else navigate("/reports", { replace: true });
     } else {
+      let report;
       try {
-        await createReport(user!.id, { ...parsed.data, photoFile: photo?.file });
+        report = await createReport(user!.id, { ...parsed.data, photoFile: photo?.file });
       } catch (err) {
         setBusy(false);
         return setErrors({ _: (err as Error).message });
       }
-      navigate("/report/submitted", { replace: true });
+      navigate(`/report/submitted/${report.id}`, { replace: true });
     }
   }
 

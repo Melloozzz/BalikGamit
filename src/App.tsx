@@ -119,7 +119,7 @@ export function App() {
           <Route path="claims/:claimId" element={<ClaimStatusPage />} />
           <Route path="claims/:claimId/submitted" element={<ClaimSubmitted />} />
           <Route path="report" element={<ReportLost />} />
-          <Route path="report/submitted" element={<ReportSubmitted />} />
+          <Route path="report/submitted/:reportId" element={<ReportSubmitted />} />
           <Route path="reports" element={<MyReports />} />
           <Route path="reports/:reportId/matches" element={<MatchSuggestions />} />
           {/* Notifications sent before Oct 11 linked here. */}

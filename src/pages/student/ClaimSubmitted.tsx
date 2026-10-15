@@ -15,7 +15,7 @@ export function ClaimSubmitted() {
     <div className="container container--narrow">
       <section className="done-card" aria-labelledby="done-h">
         <span className="done-card__icon">
-          <Icon name="check" size={48} strokeWidth={2.4} />
+          <Icon name="check" size={34} strokeWidth={2.4} />
         </span>
         <h1 id="done-h" className="done-card__title">
           Claim submitted
