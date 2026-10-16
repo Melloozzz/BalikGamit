@@ -138,7 +138,7 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
           <>
             <Toggle label="New claims" text="Email me when a student files a claim on an item." checked={prefs.newClaims} onChange={(v) => setPrefs({ ...prefs, newClaims: v })} />
             <Toggle label="Claimant replies" text="Email me when a claimant answers a question in a claim thread." checked={prefs.replies} onChange={(v) => setPrefs({ ...prefs, replies: v })} />
-            <Toggle label="Flagged posts" text="Email me when a lost report is flagged for contact details." checked={prefs.flagged} onChange={(v) => setPrefs({ ...prefs, flagged: v })} />
+            <Toggle label="Flagged posts" text="Notify me when a lost report is flagged for contact details." checked={prefs.flagged} onChange={(v) => setPrefs({ ...prefs, flagged: v })} />
           </>
         ) : (
           <>
