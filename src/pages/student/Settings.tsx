@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { Icon } from "../../components/Icon";
 import { Alert, BackButton, PageHead, PasswordField, TextField } from "../../components/ui";
 import { useAuth } from "../../auth/AuthContext";
-import { deleteMyAccount, updateMyName } from "../../data/api";
+import { deleteMyAccount, getMyEmailPrefs, saveMyEmailPrefs, updateMyName, type EmailPrefs } from "../../data/api";
 import { fieldErrors, resetPasswordSchema } from "../../lib/validation";
 
 export function Settings({ area = "student" }: { area?: "student" | "office" }) {
@@ -16,10 +16,34 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
   const [saved, setSaved] = useState("");
   const [pw, setPw] = useState({ current: "", password: "", confirm: "" });
   const [pwErrors, setPwErrors] = useState<Record<string, string>>({});
-  const [prefs, setPrefs] = useState({ matches: true, claims: true, newClaims: true, replies: true, flagged: false });
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [error, setError] = useState("");
+
+  // The switches are saved on the profile; anything not saved yet uses the default.
+  useEffect(() => {
+    if (!user) return;
+    getMyEmailPrefs(user.id)
+      .then((saved) => setPrefs({ ...DEFAULT_PREFS, ...saved }))
+      .catch(() => undefined); // keep the defaults on screen; saving still reports errors
+  }, [user]);
+
+  // Shown under the switches, which sit far below the page-level messages.
+  const [prefNote, setPrefNote] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function setPref(key: keyof typeof DEFAULT_PREFS, value: boolean) {
+    const before = prefs;
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    try {
+      await saveMyEmailPrefs(user!.id, next);
+      setPrefNote({ ok: true, text: "Saved." });
+    } catch (err) {
+      setPrefs(before);
+      setPrefNote({ ok: false, text: (err as Error).message });
+    }
+  }
 
   async function saveProfile(e: FormEvent) {
     e.preventDefault();
@@ -136,16 +160,17 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
         </h2>
         {office ? (
           <>
-            <Toggle label="New claims" text="Email me when a student files a claim on an item." checked={prefs.newClaims} onChange={(v) => setPrefs({ ...prefs, newClaims: v })} />
-            <Toggle label="Claimant replies" text="Email me when a claimant answers a question in a claim thread." checked={prefs.replies} onChange={(v) => setPrefs({ ...prefs, replies: v })} />
-            <Toggle label="Flagged posts" text="Notify me when a lost report is flagged for contact details." checked={prefs.flagged} onChange={(v) => setPrefs({ ...prefs, flagged: v })} />
+            <Toggle label="New claims" text="Email me when a student files a claim on an item." checked={prefs.newClaims} onChange={(v) => setPref("newClaims", v)} />
+            <Toggle label="Claimant replies" text="Email me when a claimant answers a question in a claim thread." checked={prefs.replies} onChange={(v) => setPref("replies", v)} />
+            <Toggle label="Flagged posts" text="Notify me when a lost report is flagged for contact details." checked={prefs.flagged} onChange={(v) => setPref("flagged", v)} />
           </>
         ) : (
           <>
-            <Toggle label="Possible matches" text="Email me when a found item may match one of my reports." checked={prefs.matches} onChange={(v) => setPrefs({ ...prefs, matches: v })} />
-            <Toggle label="Claim updates" text="Email me when my claim status changes or the office sends a message." checked={prefs.claims} onChange={(v) => setPrefs({ ...prefs, claims: v })} />
+            <Toggle label="Possible matches" text="Email me when a found item may match one of my reports." checked={prefs.matches} onChange={(v) => setPref("matches", v)} />
+            <Toggle label="Claim updates" text="Email me when my claim status changes or the office sends a message." checked={prefs.claims} onChange={(v) => setPref("claims", v)} />
           </>
         )}
+        {prefNote && <Alert tone={prefNote.ok ? "success" : undefined}>{prefNote.text}</Alert>}
         <p className="field__hint">You'll always see notifications in the app.</p>
       </section>
 
@@ -204,6 +229,9 @@ export function Settings({ area = "student" }: { area?: "student" | "office" }) 
     </div>
   );
 }
+
+/** Switch positions before a person changes anything. The email sender must use the same defaults. */
+const DEFAULT_PREFS: Required<EmailPrefs> = { matches: true, claims: true, newClaims: true, replies: true, flagged: false };
 
 function Toggle({ label, text, checked, onChange }: { label: string; text: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (

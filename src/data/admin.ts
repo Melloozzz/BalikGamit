@@ -137,6 +137,18 @@ export async function updateMyName(userId: string, fullName: string) {
   must(await supabase.from("profiles").update({ full_name: n }).eq("id", userId));
 }
 
+/** The email switches on the Settings page. A missing key means the default in Settings.tsx. */
+export type EmailPrefs = Partial<Record<"matches" | "claims" | "newClaims" | "replies" | "flagged", boolean>>;
+
+export async function getMyEmailPrefs(userId: string): Promise<EmailPrefs> {
+  const row = must(await supabase.from("profiles").select("email_prefs").eq("id", userId).single()) as { email_prefs: EmailPrefs | null };
+  return row.email_prefs ?? {};
+}
+
+export async function saveMyEmailPrefs(userId: string, prefs: EmailPrefs) {
+  must(await supabase.from("profiles").update({ email_prefs: prefs }).eq("id", userId));
+}
+
 /**
  * Deletes the signed-in student's account and everything tied to it (Data Privacy Act: the right
  * to erasure). Needs the service key, so the Worker does it.
