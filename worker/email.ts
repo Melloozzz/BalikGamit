@@ -1,6 +1,6 @@
 // Emails for in-app notifications that stay unread (proposal: "When a message stays unread while
 // the recipient is offline, the scheduler sends at most one email per thread per hour"; the same
-// rule is used for matches, claim decisions and pickups). Uses the Resend API when RESEND_API_KEY and EMAIL_FROM are
+// rule is used for matches, claims and pickups). Uses the Resend API when RESEND_API_KEY and EMAIL_FROM are
 // set; otherwise it does nothing.
 import { rest, type Env } from "./supabase";
 
@@ -183,10 +183,33 @@ export function pickupEmail(kind: "reminder" | "expired", note: string | null, l
   return { subject, text, html };
 }
 
-type Pref = "matches" | "claims";
+/**
+ * New claims for an admin. One claim: a button to that claim. Several: one email with the count and
+ * a button to the claim queue. No item title, student or answers: those stay in the app.
+ */
+export function newClaimEmail(count: number, link: string | null, appUrl = "https://balikgamit.site"): Mail {
+  const url = siteUrl(appUrl, count === 1 ? link : "/admin/claims");
+  const what = count === 1 ? "a new claim" : `${count} new claims`;
+  const subject = count === 1 ? "New claim to review on BalikGamit" : `${count} new claims to review on BalikGamit`;
+  const text = `There is ${what} to review on BalikGamit. A student filed a claim on a found item.\n\nReview: ${url}\n\nSign in to compare the answers with the item's private details.`;
+  const html = layout({
+    title: subject,
+    heading: count === 1 ? "New claim to review" : `${count} new claims to review`,
+    body: `A student filed ${count === 1 ? "a claim" : "claims"} on ${count === 1 ? "a found item" : "found items"}. Sign in to review ${count === 1 ? "it" : "them"}.`,
+    button: count === 1 ? "Review the claim" : "Review claims",
+    url,
+    footer: "You can turn these emails off in Settings under New claims. We email at most once an hour.",
+  });
+  return { subject, text, html };
+}
 
-/** The notification types that get an email, and the Settings switch (if any) that can turn it off. */
-const EMAILS: Record<string, { pref?: Pref; build: (notes: Note[], appUrl?: string) => Mail }> = {
+type Pref = "matches" | "claims" | "newClaims";
+
+/**
+ * The notification types that get an email, and the Settings switch (if any) that can turn it off.
+ * `perPerson` puts all of a person's unread ones of that type into one email (instead of one per link).
+ */
+const EMAILS: Record<string, { pref?: Pref; perPerson?: boolean; build: (notes: Note[], appUrl?: string) => Mail }> = {
   new_message: { build: (notes, appUrl) => messageEmail(notes.length, notes[0].link, appUrl) },
   matches: { pref: "matches", build: (notes, appUrl) => matchEmail(notes[0].link, appUrl) },
   // The latest decision wins if there are several for the same claim.
@@ -194,11 +217,12 @@ const EMAILS: Record<string, { pref?: Pref; build: (notes: Note[], appUrl?: stri
   claim_rejected: { pref: "claims", build: (notes, appUrl) => claimRejectedEmail(notes[0].link, appUrl) },
   pickup_reminder: { pref: "claims", build: (notes, appUrl) => pickupEmail("reminder", notes[0].body, notes[0].link, appUrl) },
   pickup_expired: { pref: "claims", build: (notes, appUrl) => pickupEmail("expired", notes[0].body, notes[0].link, appUrl) },
+  claim_submitted: { pref: "newClaims", perPerson: true, build: (notes, appUrl) => newClaimEmail(notes.length, notes[0].link, appUrl) },
 };
 const TYPES = Object.keys(EMAILS).join(",");
 
 /** Switch positions nobody has changed yet. Same defaults as src/pages/student/Settings.tsx. */
-const DEFAULT_ON: Record<Pref, boolean> = { matches: true, claims: true };
+const DEFAULT_ON: Record<Pref, boolean> = { matches: true, claims: true, newClaims: true };
 
 export async function emailUnreadNotifications(env: Env): Promise<number> {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) return 0;
@@ -217,10 +241,11 @@ export async function emailUnreadNotifications(env: Env): Promise<number> {
     env,
     `notifications?type=in.(${TYPES})&emailed_at=gte.${encodeURIComponent(hourAgo)}&select=user_id,type,link`,
   );
-  const keyOf = (n: { user_id: string; type: string; link: string | null }) => `${n.user_id} ${n.type} ${n.link}`;
+  const keyOf = (n: { user_id: string; type: string; link: string | null }) =>
+    EMAILS[n.type]?.perPerson ? `${n.user_id} ${n.type}` : `${n.user_id} ${n.type} ${n.link}`;
   const sentThisHour = new Set(recent.map(keyOf));
 
-  // One email per person and thread (messages) or report (matches).
+  // One email per person and thread (messages), report (matches) or claim; new claims per person.
   const groups = new Map<string, Note[]>();
   for (const n of pending) groups.set(keyOf(n), [...(groups.get(keyOf(n)) ?? []), n]);
   const ids = [...new Set(pending.map((n) => n.user_id))];

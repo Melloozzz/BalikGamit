@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { claimApprovedEmail, emailUnreadNotifications, matchEmail, messageEmail, pickupEmail } from "./email";
+import { claimApprovedEmail, emailUnreadNotifications, matchEmail, messageEmail, newClaimEmail, pickupEmail } from "./email";
 import type { Env } from "./supabase";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -166,5 +166,70 @@ describe("pickup emails", () => {
     const mail = pickupEmail("expired", null, "/claims/CL-1001");
     expect(mail.subject).toBe("Your pickup window has passed on BalikGamit");
     expect(mail.text).toContain("Contact the office if you still need it.");
+  });
+});
+
+describe("new claim email (admins)", () => {
+  it("links one claim straight to its review page", () => {
+    const mail = newClaimEmail(1, "/admin/claims/CL-1001", "https://dev.balikgamit.site");
+    expect(mail.subject).toBe("New claim to review on BalikGamit");
+    expect(mail.html).toContain('href="https://dev.balikgamit.site/admin/claims/CL-1001"');
+  });
+
+  it("sends several claims as one email to the claim queue", () => {
+    const mail = newClaimEmail(3, "/admin/claims/CL-1001", "https://dev.balikgamit.site");
+    expect(mail.subject).toBe("3 new claims to review on BalikGamit");
+    expect(mail.html).toContain('href="https://dev.balikgamit.site/admin/claims"');
+  });
+});
+
+describe("emailUnreadNotifications for admins", () => {
+  const env = { SUPABASE_URL: "https://db.test", SUPABASE_SERVICE_ROLE_KEY: "k", RESEND_API_KEY: "r", EMAIL_FROM: "BalikGamit <no-reply@balikgamit.site>", APP_URL: "https://dev.balikgamit.site" } as Env;
+
+  function fake(notes: { id: number; user_id: string; type: string; link: string; body?: string }[], people: { id: string; email: string; email_prefs?: Record<string, boolean> }[]) {
+    const emails: { to: string; subject: string; html: string; text: string }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.startsWith("https://api.resend.com")) {
+          emails.push(JSON.parse(String(init?.body)));
+          return new Response("{}", { status: 200 });
+        }
+        if (init?.method === "PATCH") return new Response(null, { status: 204 });
+        if (url.includes("/notifications?") && url.includes("is_read=eq.false")) return Response.json(notes.map((n) => ({ ...n, created_at: "2026-10-18T00:00:00Z" })));
+        if (url.includes("/notifications?")) return Response.json([]);
+        if (url.includes("/profiles?")) return Response.json(people.map((p) => ({ is_active: true, email_prefs: {}, ...p })));
+        throw new Error(`unexpected ${url}`);
+      }),
+    );
+    return emails;
+  }
+
+  it("groups an admin's new claims into one email without the item titles", async () => {
+    const emails = fake(
+      [
+        { id: 1, user_id: "a1", type: "claim_submitted", link: "/admin/claims/CL-1001", body: "Black Wallet" },
+        { id: 2, user_id: "a1", type: "claim_submitted", link: "/admin/claims/CL-1002", body: "Blue Umbrella" },
+      ],
+      [{ id: "a1", email: "a1@rtu.edu.ph" }],
+    );
+    expect(await emailUnreadNotifications(env)).toBe(1);
+    expect(emails[0].subject).toBe("2 new claims to review on BalikGamit");
+    expect(emails[0].html).not.toContain("Black Wallet");
+  });
+
+  it("emails each admin separately, and skips one who turned New claims off", async () => {
+    const emails = fake(
+      [
+        { id: 1, user_id: "a1", type: "claim_submitted", link: "/admin/claims/CL-1001" },
+        { id: 2, user_id: "a2", type: "claim_submitted", link: "/admin/claims/CL-1001" },
+      ],
+      [
+        { id: "a1", email: "a1@rtu.edu.ph" },
+        { id: "a2", email: "a2@rtu.edu.ph", email_prefs: { newClaims: false } },
+      ],
+    );
+    expect(await emailUnreadNotifications(env)).toBe(1);
+    expect(emails.map((e) => e.to)).toEqual(["a1@rtu.edu.ph"]);
   });
 });
