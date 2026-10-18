@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emailUnreadNotifications, matchEmail, messageEmail } from "./email";
+import { claimApprovedEmail, emailUnreadNotifications, matchEmail, messageEmail } from "./email";
 import type { Env } from "./supabase";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -114,5 +114,42 @@ describe("emailUnreadNotifications", () => {
     );
     expect(await emailUnreadNotifications(env)).toBe(2);
     expect(emails.map((e) => e.subject).sort()).toEqual(["A possible match for your lost item on BalikGamit", "You have a new message on BalikGamit"]);
+  });
+
+  it("emails a claim approval with the pickup instructions", async () => {
+    const pickup = "Please pick up your item within 5 working days at OSA, Room 101. Bring your RTU ID.";
+    const { emails } = fake([{ id: 1, user_id: "s1", type: "claim_approved", link: "/claims/CL-1001", body: pickup }], [{ id: "s1", email: "s1@rtu.edu.ph" }]);
+    expect(await emailUnreadNotifications(env)).toBe(1);
+    expect(emails[0].subject).toBe("Your claim was approved on BalikGamit");
+    expect(emails[0].html).toContain("within 5 working days at OSA, Room 101");
+    expect(emails[0].html).toContain('href="https://dev.balikgamit.site/claims/CL-1001"');
+  });
+
+  it("emails a claim rejection without the office's reason", async () => {
+    const { emails } = fake([{ id: 1, user_id: "s1", type: "claim_rejected", link: "/claims/CL-1001", body: "The wallpaper you described is different." }], [{ id: "s1", email: "s1@rtu.edu.ph" }]);
+    expect(await emailUnreadNotifications(env)).toBe(1);
+    expect(emails[0].subject).toBe("Update on your claim on BalikGamit");
+    expect(emails[0].html).not.toContain("wallpaper");
+    expect(emails[0].text).not.toContain("wallpaper");
+  });
+
+  it("sends no claim emails when Claim updates is switched off", async () => {
+    const { emails, stamped } = fake(
+      [
+        { id: 1, user_id: "s1", type: "claim_approved", link: "/claims/CL-1001", body: "Pick up at the office." },
+        { id: 2, user_id: "s1", type: "claim_rejected", link: "/claims/CL-1002" },
+      ],
+      [{ id: "s1", email: "s1@rtu.edu.ph", email_prefs: { claims: false } }],
+    );
+    expect(await emailUnreadNotifications(env)).toBe(0);
+    expect(emails).toHaveLength(0);
+    expect(stamped).toHaveLength(2);
+  });
+});
+
+describe("claim approved email", () => {
+  it("escapes the pickup text and falls back when it is missing", () => {
+    expect(claimApprovedEmail("<b>Room 1</b>", "/claims/X").html).not.toContain("<b>Room 1</b>");
+    expect(claimApprovedEmail(null, "/claims/X").text).toContain("Sign in to see where and when to pick up your item.");
   });
 });

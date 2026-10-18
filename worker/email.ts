@@ -1,6 +1,6 @@
 // Emails for in-app notifications that stay unread (proposal: "When a message stays unread while
 // the recipient is offline, the scheduler sends at most one email per thread per hour"; the same
-// rule is used for possible matches). Uses the Resend API when RESEND_API_KEY and EMAIL_FROM are
+// rule is used for matches and claim decisions). Uses the Resend API when RESEND_API_KEY and EMAIL_FROM are
 // set; otherwise it does nothing.
 import { rest, type Env } from "./supabase";
 
@@ -8,6 +8,7 @@ interface Note {
   id: number;
   user_id: string;
   type: string;
+  body: string | null;
   link: string | null;
   created_at: string;
 }
@@ -117,24 +118,72 @@ export function matchEmail(link: string | null, appUrl = "https://balikgamit.sit
   return { subject, text, html };
 }
 
+/**
+ * Claim approved, with a button to the claim (/claims/<ref>). `pickup` is the notification body the
+ * database writes: where and within how many days to pick the item up. It is office information,
+ * not a private detail, so it goes in the email (escaped: the office name can be typed by an admin).
+ */
+export function claimApprovedEmail(pickup: string | null, link: string | null, appUrl = "https://balikgamit.site"): Mail {
+  const url = siteUrl(appUrl, link);
+  const subject = "Your claim was approved on BalikGamit";
+  const how = pickup?.trim() || "Sign in to see where and when to pick up your item.";
+  const text = `Your claim was approved.\n\n${how}\n\nView your claim: ${url}`;
+  const html = layout({
+    title: subject,
+    heading: "Your claim was approved",
+    body: `Good news: the office approved your claim. ${escapeHtml(how)}`,
+    button: "View your claim",
+    url,
+    footer: "You can turn these emails off in Settings under Claim updates.",
+  });
+  return { subject, text, html };
+}
+
+/**
+ * Claim not approved, with a button to the claim. The reason stays in the app: the office writes it
+ * and it may mention item details.
+ */
+export function claimRejectedEmail(link: string | null, appUrl = "https://balikgamit.site"): Mail {
+  const url = siteUrl(appUrl, link);
+  const subject = "Update on your claim on BalikGamit";
+  const text = `Your claim wasn't approved. Sign in to see why.\n\nView your claim: ${url}`;
+  const html = layout({
+    title: subject,
+    heading: "Update on your claim",
+    body: "Your claim wasn't approved. Sign in to see the office's reason.",
+    button: "View your claim",
+    url,
+    footer: "You can turn these emails off in Settings under Claim updates.",
+  });
+  return { subject, text, html };
+}
+
+type Pref = "matches" | "claims";
+
 /** The notification types that get an email, and the Settings switch (if any) that can turn it off. */
-const EMAILS: Record<string, { pref?: "matches"; build: (notes: Note[], appUrl?: string) => Mail }> = {
+const EMAILS: Record<string, { pref?: Pref; build: (notes: Note[], appUrl?: string) => Mail }> = {
   new_message: { build: (notes, appUrl) => messageEmail(notes.length, notes[0].link, appUrl) },
   matches: { pref: "matches", build: (notes, appUrl) => matchEmail(notes[0].link, appUrl) },
+  // The latest decision wins if there are several for the same claim.
+  claim_approved: { pref: "claims", build: (notes, appUrl) => claimApprovedEmail(notes[notes.length - 1].body, notes[0].link, appUrl) },
+  claim_rejected: { pref: "claims", build: (notes, appUrl) => claimRejectedEmail(notes[0].link, appUrl) },
 };
 const TYPES = Object.keys(EMAILS).join(",");
 
 /** Switch positions nobody has changed yet. Same defaults as src/pages/student/Settings.tsx. */
-const DEFAULT_ON: Record<string, boolean> = { matches: true };
+const DEFAULT_ON: Record<Pref, boolean> = { matches: true, claims: true };
 
 export async function emailUnreadNotifications(env: Env): Promise<number> {
   if (!env.RESEND_API_KEY || !env.EMAIL_FROM) return 0;
   const tenMinAgo = new Date(Date.now() - 10 * MINUTE).toISOString();
   const hourAgo = new Date(Date.now() - 60 * MINUTE).toISOString();
+  // Older notifications are never emailed, so a newly added email type doesn't reach people about
+  // things that happened long ago.
+  const dayAgo = new Date(Date.now() - 24 * 60 * MINUTE).toISOString();
   // Unread for at least 10 minutes: the person hasn't seen it in the app.
   const pending = await rest<Note[]>(
     env,
-    `notifications?type=in.(${TYPES})&is_read=eq.false&emailed_at=is.null&created_at=lte.${encodeURIComponent(tenMinAgo)}&select=id,user_id,type,link,created_at&order=created_at.asc&limit=200`,
+    `notifications?type=in.(${TYPES})&is_read=eq.false&emailed_at=is.null&created_at=lte.${encodeURIComponent(tenMinAgo)}&created_at=gte.${encodeURIComponent(dayAgo)}&select=id,user_id,type,body,link,created_at&order=created_at.asc&limit=200`,
   );
   if (!pending.length) return 0;
   const recent = await rest<{ user_id: string; type: string; link: string | null }[]>(
