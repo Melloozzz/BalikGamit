@@ -1,6 +1,6 @@
 // Emails for in-app notifications that stay unread (proposal: "When a message stays unread while
 // the recipient is offline, the scheduler sends at most one email per thread per hour"; the same
-// rule is used for matches and claim decisions). Uses the Resend API when RESEND_API_KEY and EMAIL_FROM are
+// rule is used for matches, claim decisions and pickups). Uses the Resend API when RESEND_API_KEY and EMAIL_FROM are
 // set; otherwise it does nothing.
 import { rest, type Env } from "./supabase";
 
@@ -158,6 +158,31 @@ export function claimRejectedEmail(link: string | null, appUrl = "https://balikg
   return { subject, text, html };
 }
 
+/**
+ * Pickup reminder (the day before the deadline) and pickup window expired, with a button to the
+ * claim. `note` is the notification body the database writes (office instructions, no private details).
+ */
+export function pickupEmail(kind: "reminder" | "expired", note: string | null, link: string | null, appUrl = "https://balikgamit.site"): Mail {
+  const url = siteUrl(appUrl, link);
+  const reminder = kind === "reminder";
+  const subject = reminder ? "Pick up your item by tomorrow on BalikGamit" : "Your pickup window has passed on BalikGamit";
+  const heading = reminder ? "Pick up your item by tomorrow" : "Your pickup window has passed";
+  const lead = reminder
+    ? "Your approved item is waiting at the office, and the pickup deadline is tomorrow."
+    : "Your approved item wasn't picked up in time, so it went back to the office.";
+  const extra = note?.trim() || (reminder ? "Bring your RTU ID to the office." : "Contact the office if you still need it.");
+  const text = `${lead}\n\n${extra}\n\nView your claim: ${url}`;
+  const html = layout({
+    title: subject,
+    heading,
+    body: `${lead} ${escapeHtml(extra)}`,
+    button: "View your claim",
+    url,
+    footer: "You can turn these emails off in Settings under Claim updates.",
+  });
+  return { subject, text, html };
+}
+
 type Pref = "matches" | "claims";
 
 /** The notification types that get an email, and the Settings switch (if any) that can turn it off. */
@@ -167,6 +192,8 @@ const EMAILS: Record<string, { pref?: Pref; build: (notes: Note[], appUrl?: stri
   // The latest decision wins if there are several for the same claim.
   claim_approved: { pref: "claims", build: (notes, appUrl) => claimApprovedEmail(notes[notes.length - 1].body, notes[0].link, appUrl) },
   claim_rejected: { pref: "claims", build: (notes, appUrl) => claimRejectedEmail(notes[0].link, appUrl) },
+  pickup_reminder: { pref: "claims", build: (notes, appUrl) => pickupEmail("reminder", notes[0].body, notes[0].link, appUrl) },
+  pickup_expired: { pref: "claims", build: (notes, appUrl) => pickupEmail("expired", notes[0].body, notes[0].link, appUrl) },
 };
 const TYPES = Object.keys(EMAILS).join(",");
 

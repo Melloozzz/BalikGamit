@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { claimApprovedEmail, emailUnreadNotifications, matchEmail, messageEmail } from "./email";
+import { claimApprovedEmail, emailUnreadNotifications, matchEmail, messageEmail, pickupEmail } from "./email";
 import type { Env } from "./supabase";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -151,5 +151,20 @@ describe("claim approved email", () => {
   it("escapes the pickup text and falls back when it is missing", () => {
     expect(claimApprovedEmail("<b>Room 1</b>", "/claims/X").html).not.toContain("<b>Room 1</b>");
     expect(claimApprovedEmail(null, "/claims/X").text).toContain("Sign in to see where and when to pick up your item.");
+  });
+});
+
+describe("pickup emails", () => {
+  it("reminds the student the day before the deadline, with a button to the claim", () => {
+    const mail = pickupEmail("reminder", "Bring your RTU ID to the office.", "/claims/CL-1001", "https://dev.balikgamit.site");
+    expect(mail.subject).toBe("Pick up your item by tomorrow on BalikGamit");
+    expect(mail.html).toContain("Bring your RTU ID to the office.");
+    expect(mail.html).toContain('href="https://dev.balikgamit.site/claims/CL-1001"');
+  });
+
+  it("says when the pickup window has passed", () => {
+    const mail = pickupEmail("expired", null, "/claims/CL-1001");
+    expect(mail.subject).toBe("Your pickup window has passed on BalikGamit");
+    expect(mail.text).toContain("Contact the office if you still need it.");
   });
 });
