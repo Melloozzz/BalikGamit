@@ -80,7 +80,7 @@ export {
   type OfficeReport,
 } from "./office";
 // Super admin and account settings (slice 5): src/data/admin.ts.
-export { listPlaces, addPlace, renamePlace, setPlaceArchived, listAdmins, inviteAdmin, setAdminActive, updateMyName, deleteMyAccount } from "./admin";
+export { listPlaces, addPlace, renamePlace, setPlaceArchived, listAdmins, inviteAdmin, setAdminActive, updateMyName, getMyEmailPrefs, saveMyEmailPrefs, deleteMyAccount, type EmailPrefs } from "./admin";
 export { useDataVersion } from "./events";
 
 export { todayIso };

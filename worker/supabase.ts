@@ -8,7 +8,7 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY: string;
   GROQ_API_KEY: string;
   GROQ_MODEL: string;
-  /** Optional: email for unread claim messages. Without it, no emails are sent. */
+  /** Optional: email for unread notifications (worker/email.ts). Without it, no emails are sent. */
   RESEND_API_KEY?: string;
   EMAIL_FROM?: string;
   /** Site address for links in emails (no trailing slash). Defaults to https://balikgamit.site. */

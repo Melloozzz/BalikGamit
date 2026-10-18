@@ -5,7 +5,7 @@
 import { Hono } from "hono";
 import { auth, profileOf, rest, rpc, storage, userFromToken, type Env } from "./supabase";
 import { processJobs } from "./jobs";
-import { emailUnreadMessages } from "./email";
+import { emailUnreadNotifications } from "./email";
 import { comingSoon } from "./comingSoon";
 
 type Vars = { userId: string };
@@ -165,7 +165,7 @@ export default {
     ctx.waitUntil(
       (async () => {
         await step("ai jobs", () => processJobs(env, 3));
-        await step("emails", () => emailUnreadMessages(env));
+        await step("emails", () => emailUnreadNotifications(env));
       })(),
     );
   },
