@@ -9,15 +9,15 @@ export function Dashboard() {
   const claims = useLoad(() => listAllClaims(), []);
   const counts = useLoad(() => getDashboardCounts(), []);
   if (!claims || !counts) return <Loading />;
-  const stats: { icon: IconName; n: number; label: string; to?: string }[] = [
-    { icon: "box", n: counts.inCustody, label: "Items in custody", to: "/admin/items" },
-    { icon: "clock", n: counts.claimsToAct, label: "Claims needing action", to: "/admin/claims" },
-    { icon: "flag", n: counts.flagged, label: "Flagged posts", to: "/admin/flagged" },
+  const stats: { icon: IconName; n: number; label: string; to?: string; tone: "navy" | "gold" | "red"}[] = [
+    { icon: "box", n: counts.inCustody, label: "Items in custody", to: "/admin/items", tone: "navy" },
+    { icon: "clock", n: counts.claimsToAct, label: "Claims needing action", to: "/admin/claims", tone: "gold" },
+    { icon: "flag", n: counts.flagged, label: "Flagged posts", to: "/admin/flagged", tone: "red" },
   ];
 
   return (
     <div className="container stack-lg dash">
-      <PageHead
+      <PageHead 
         eyebrow="OFFICE WORKSPACE"
         title={timeOfDayGreeting()}
         lead="Here’s what needs attention across BalikGamit today."
@@ -29,6 +29,7 @@ export function Dashboard() {
       />
       <div className="stat-grid">
         {stats.map((s) => {
+          const cls = "stat stat--" + s.tone + (s.n === 0 ? " stat--zero" : "");
           const body = (
             <>
               <span className="stat__icon">
@@ -40,11 +41,11 @@ export function Dashboard() {
             </>
           );
           return s.to ? (
-            <Link key={s.label} to={s.to} className="stat">
+            <Link key={s.label} to={s.to} className={cls}>
               {body}
             </Link>
           ) : (
-            <div key={s.label} className="stat">
+            <div key={s.label} className={cls}>
               {body}
             </div>
           );

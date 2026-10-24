@@ -28,7 +28,7 @@ const itemStatus: Record<FoundItemStatus, { label: string; tone: Tone; icon?: Ic
   in_custody: { label: "In custody", tone: "blue" },
   claim_pending: { label: "Claim pending", tone: "amber" },
   ready_for_pickup: { label: "Ready for pickup", tone: "green", icon: "check" },
-  returned: { label: "Returned", tone: "gray", icon: "check" },
+  returned: { label: "Returned", tone: "green", icon: "check" },
   donated: { label: "Donated", tone: "gray", icon: "gift" },
   disposed: { label: "Disposed", tone: "gray", icon: "trash" },
 };
