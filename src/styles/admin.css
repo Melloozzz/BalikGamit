@@ -158,29 +158,6 @@ a.stat--zero:hover {
   box-shadow: none;
 }
 .stat__n {
-  color: #fff;
-}
-.stat--gold .stat__n {
-  color: var(--navy-950);
-}
-.stat--navy .stat__label,
-.stat--red .stat__label {
-  color: rgba(255, 255, 255, 0.88);
-}
-.stat--gold .stat__label {
-  color: var(--navy-950);
-}
-a.stat--navy:hover,
-a.stat--gold:hover,
-a.stat--red:hover {
-  border-color: transparent;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0, 26, 73, 0.22);
-}
-.stat {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.stat__n {
   font-size: var(--fs-display);
   line-height: 1;
   color: #131b26;
