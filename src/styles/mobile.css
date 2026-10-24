@@ -1122,8 +1122,10 @@
     right: 10px;
     width: 16px;
     height: 16px;
-    color: var(--muted);
+    color: inherit;
+    opacity: 0.8;
   }
+  
   .dash .stat__n {
     font-size: 28px;
   }
